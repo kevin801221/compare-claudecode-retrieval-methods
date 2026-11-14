@@ -1,0 +1,317 @@
+﻿model,effort,round,cond,qid,type,correct,hallucinated,stale,retrieved,read_gold,citation_hit,citation_precision,index_used,tool_calls,files_read_n,duration_s,cost_usd,found,answer
+haiku,medium,1,A-messy,Q01,lookup,True,False,,True,False,True,1.0,False,3,0,5.671,0.00197788,True,"應使用 `addPlugins` 選項。在 `query()` 回傳的 `Query` 物件上呼叫 `reloadPlugins({ addPlugins: [...] })`，每個項目為 `{ type: ""local"", path }`，且 `path` 必須是絕對路徑。Claude Code 會載入新資料夾並一併重新載入該 session 既有的 plugin。
+
+最低需要的版本是 **TypeScript Agent SDK v0.3.301**。文件另外註明需要 Claude Code v2.1.301 或更新版本。
+
+注意：如果 `reloadPlugins()` 被拒絕，`addPlugins` 內的資料夾都不會被加入，重試時需要再次傳入。若傳入 `holdOnCacheImpact` 且結果為 `held: true`，`addPlugins` 的資料夾也不會被加入。"
+haiku,medium,1,A-messy,Q02,lookup,True,False,,True,False,True,1.0,False,2,0,5.08,0.00173816,True,"建立連線的等待上限用 `MCP_TIMEOUT`（單位是毫秒，預設 30 秒，連線在期限到時失敗）。工具呼叫的執行時間上限用 `MCP_TOOL_TIMEOUT`。
+
+文件還提到，若只是要調整 SDK 啟動時的等待時間，可以改用 `CLAUDE_CODE_MCP_STARTUP_WAIT_MS`；若是設定 `MCP_CONNECTION_NONBLOCKING` 為 `0`，則可用 `MCP_CONNECT_TIMEOUT_MS` 調整啟動等待上限（預設 5 秒）。另外，TypeScript 的單一 SDK MCP server 也可以用 `options.timeout` 覆寫 `MCP_TOOL_TIMEOUT`。"
+haiku,medium,1,A-messy,Q03,paraphrase,True,False,,True,False,True,1.0,False,3,0,7.692,0.0024410100000000004,True,"要用的是檔案檢查點（file checkpointing）：
+
+1. **事先開啟**：在 `ClaudeAgentOptions` 設定 `enable_file_checkpointing=True`（即 `ClaudeAgentOptions(enable_file_checkpointing=True)`）。這個選項預設是 `False`，開啟後 SDK 才會追蹤檔案變更。
+2. **還原時呼叫**：`client.rewind_files(user_message_id)`，傳入要還原到的那則使用者訊息的 UUID。它會把磁碟上的檔案恢復到該訊息送出前的狀態，而且**不會**回復對話本身，對話紀錄和上下文都保留，可以繼續處理。
+
+補充（文件中的限制）：
+- 該 UUID 要從回應串流中取得。
+- 若要在串流結束後才還原，需要用空的 prompt 恢復（resume）該 session，並且在恢復的 session 選項中也要開啟 `enable_file_checkpointing=True`，然後在回應迴圈中呼叫 `rewind_files()`。若在迭代結束後才呼叫，會出現連線已關閉的錯誤。
+- `rewind_files()` 不會復原 Bash 指令（例如 `sed -i`）對檔案的修改，只能還原 Write、Edit 等工具在主對話中所做的修改。子代理（subagent）的編輯也不被追蹤。"
+haiku,medium,1,A-messy,Q04,paraphrase,True,False,,True,True,True,1.0,False,9,1,16.171,0.009089610000000001,True,"要設為 1 的環境變數是 `CLAUDE_CODE_OTEL_DIAG_STDERR`，即 `CLAUDE_CODE_OTEL_DIAG_STDERR=1`。
+
+文件說明：CLI 預設會靜默處理匯出錯誤（endpoint 連不上或拒收資料時，代理照常執行，CLI 直接丟掉遙測資料，應用程式看不到錯誤）。設定 `CLAUDE_CODE_OTEL_DIAG_STDERR=1` 後，匯出錯誤的診斷訊息會輸出到 stderr，需與匯出器相關變數（如 `OTEL_TRACES_EXPORTER`、`OTEL_EXPORTER_OTLP_ENDPOINT`）一起設定，並透過 SDK 的 `stderr` callback（Python）或 `stderr` 選項（TypeScript）讀取。此功能需要 Claude Code v2.1.179 或更新版本。
+
+另外，文件建議任務結束後先到收集端檢查是否有收到 spans、metrics 和 log events，以確認匯出是否正常。
+
+注意：不要把 `console` 設為匯出器值，因為它會寫到標準輸出，而 SDK 用標準輸出作為訊息通道。"
+haiku,medium,1,A-messy,Q05,version,True,False,False,True,True,True,1.0,False,3,1,5.247,0.00333249,True,"遷移後的 package.json 設定（依遷移指南第 4 步的範例）：
+
+```json
+""@anthropic-ai/claude-agent-sdk"": ""^0.3.0""
+```
+
+套件名稱為 `@anthropic-ai/claude-agent-sdk`，版本範圍範例為 `^0.3.0`（指南原文是從 `""^0.0.42""` 改為 `""^0.3.0""`）。"
+haiku,medium,1,A-messy,Q06,version,True,False,False,True,True,True,1.0,False,4,2,7.428,0.0044409,True,"改用 `query()` 函式，不再使用 `unstable_v2_createSession` / `unstable_v2_resumeSession`。
+
+1. **多輪對話（同一個 process 內）**：把 `prompt` 傳成 `AsyncIterable<SDKUserMessage>`，每一輪的使用者訊息由這個 async iterable 依序 yield。
+   ```typescript
+   import { query, type SDKUserMessage } from ""@anthropic-ai/claude-agent-sdk"";
+
+   async function* input(): AsyncIterable<SDKUserMessage> {
+     yield { type: ""user"", session_id: """", message: { role: ""user"", content: [{ type: ""text"", text: ""What is 5 + 3?"" }] }, parent_tool_use_id: null };
+     // 之後的輪次同樣 yield SDKUserMessage
+   }
+
+   for await (const msg of query({ prompt: input(), options: { model: ""claude-opus-4-7"" } })) { /* ... */ }
+   ```
+
+2. **恢復已儲存的 session**：使用 `query()` 的 `options.resume`（傳入 session ID）。
+
+3. **只接續最近的 session（TypeScript）**：使用 `options: { continue: true }`，不需要追蹤 ID。
+
+注意：文件中 `continue: true` 的範例是每次各自呼叫一次 `query()`；`AsyncIterable<SDKUserMessage>` 則是文件指定的多輪替代寫法。"
+haiku,medium,1,A-messy,Q07,multi_doc,True,False,,True,False,True,1.0,False,8,1,14.487,0.008419510000000002,True,"第一題：官方用來檢驗儲存介接器（SessionStore adapter）是否符合行為契約的 Python 測試函式是 `run_session_store_conformance`，位於 `claude_agent_sdk.testing`。使用方式是在 pytest 測試中傳入零參數的工廠函式，每個契約都會呼叫它建立一個全新、空白的儲存實例。TypeScript 版則是把 `shared/conformance.ts` 複製到測試套件中，並非具名函式。
+
+第二題：掛在 `claude_code.tool.execution` 這個 span 底下。啟用追蹤傳遞後，CLI 會把 `TRACEPARENT` 轉發給 Bash（與 PowerShell）工具執行的每個指令，因此指令自行產生的 OpenTelemetry spans 會巢狀掛在包住該指令的 `claude_code.tool.execution` 之下。注意追蹤目前為 beta 功能，span 名稱與屬性之後可能變動。"
+haiku,medium,1,A-messy,Q08,multi_doc,True,False,,True,True,True,1.0,False,4,2,5.447,0.00325621,True,"1. ENABLE_TOOL_SEARCH 要填 `auto:5`。文件說明 `auto` 預設門檻是 10%，`auto:N` 可自訂百分比，`auto:5` 表示可延後載入的工具定義達到上下文視窗的 5% 時才啟用 tool search。
+
+2. Zod 轉 JSON Schema 時，target 要填 `""draft-7""`。文件說明 SDK 只接受 JSON Schema draft-07，而 Zod 預設是 draft 2020-12，所以要傳 `target: ""draft-7""`，例如 `z.toJSONSchema(FeaturePlan, { target: ""draft-7"" })`。"
+haiku,medium,1,A-messy,Q09,unanswerable,True,False,,,,,,False,4,0,8.508,0.00263986,False,"找不到答案。資料夾裡的文件沒有提到 Ruby 版的 Claude Agent SDK，也沒有 RubyGems 套件名稱或 Ruby 的 client 初始化程式碼。我搜尋了所有文件中的 ""ruby""、""rubygems""、""gem"" 等關鍵字，沒有相關結果。
+
+文件中記載的官方 SDK 只有兩種語言：
+- **TypeScript**：npm 套件 `@anthropic-ai/claude-agent-sdk`（例如 `docs/doc_022.md`）
+- **Python**：PyPI 套件 `claude-agent-sdk`（例如 `docs/doc_022.md`）
+
+`docs/doc_019.md` 第 5 行也寫明 Agent SDK 可用 Python 與 TypeScript 程式化。因此，文件無法確認 Ruby 版是否存在。若要在 Rails 後端使用，可以考慮在後端以子行程（subprocess）或 HTTP 方式呼叫 TypeScript/Python 版 SDK，但這是我的推論，文件中並未提到。建議直接查閱 Anthropic 官方資料或詢問負責人。"
+haiku,medium,1,A-messy,Q10,unanswerable,True,False,,,,,,False,5,1,9.223,0.0037847299999999996,False,"找不到答案。在目前資料夾的 docs/ 文件（doc_001.md 至 doc_032.md）中，沒有任何官方 benchmark 提到「單機同時執行 100 個 session 的 P95 首次回應延遲（毫秒）」，也沒有寫明測試所用的 CPU 與記憶體規格。
+
+文件中與容量相關的內容只有指引性敘述，不是實測數據：
+- docs/doc_029.md（Resources、Scaling and concurrency）：建議每個 agent 起始規格為 1 GiB RAM、5 GiB 磁碟、1 CPU，並說明應自行量測每個 session 的 peak RSS 來估算單機可承載數量，該 1 GiB 只是下限。
+- docs/doc_025.md：提到每個等待中的 spare 約佔用 230 至 260 MB 記憶體，但沒有延遲數據，也不是 100 個 session 的測試。
+
+因此不能把這些內容引用為官方 benchmark。若要做容量規劃，建議依 docs/doc_029.md 的方法自行實測，或向 Anthropic 官方確認是否有公開的 benchmark 報告。"
+haiku,medium,1,B-organized,Q01,lookup,True,False,,True,False,True,1.0,False,1,0,4.03,0.0013022200000000002,True,"應使用 `addPlugins` 選項。它是 `reloadPlugins()` 的選項，接受 `SdkPluginConfig` 項目的清單，每個項目的 `path` 必須是絕對路徑（例如 `{ type: ""local"", path: ""/home/user/plugins/another-plugin"" }`）。Claude Code 會載入新的資料夾，並在同一次呼叫中重新載入該 session 既有的 plugin。
+
+這個選項最低需要 **Agent SDK v0.3.301** 或更新版本，同時需要 Claude Code v2.1.301 或更新版本。
+
+來源文件中也說明：若 `reloadPlugins()` 被拒絕，`addPlugins` 的資料夾都不會被加入，重試時需要再次傳入。"
+haiku,medium,1,B-organized,Q02,lookup,True,False,,True,False,True,1.0,False,1,0,5.034,0.0013009100000000002,True,"兩個環境變數分別是：
+
+- **建立連線的等待上限**：`MCP_TIMEOUT`，單位是毫秒，預設 30 秒。stdio 伺服器、沒有快取工具清單的 HTTP/SSE 伺服器，以及 in-process SDK 伺服器，都是以這個時間作為連線期限，超過就連線失敗。
+- **工具呼叫的執行時間上限**：`MCP_TOOL_TIMEOUT`。文件只說明它用來調整「正在執行的工具呼叫」可以跑多久，文件中沒有寫明預設值。
+
+另外，文件還提到 `CLAUDE_CODE_MCP_STARTUP_WAIT_MS`，用來設定第一輪對話等待設定檔與 plugin 伺服器的時間（毫秒），它會取代 `MCP_TIMEOUT` 對 `options.mcpServers` 中 stdio、HTTP、SSE 伺服器的等待，但它不是連線逾時本身。"
+haiku,medium,1,B-organized,Q03,paraphrase,True,False,,True,True,True,1.0,False,3,1,7.056,0.004198230000000001,True,"先開啟 `ClaudeAgentOptions(enable_file_checkpointing=True)`，還原時呼叫 `client.rewind_files(user_message_id)`。
+
+1. **開啟選項**：`enable_file_checkpointing=True`。另外要加上 `extra_args={""replay-user-messages"": None}`，否則串流中的使用者訊息沒有 UUID，無法取得還原點。
+2. **取得還原點**：每個開始一個回合的使用者提示訊息，其 `uuid` 就是還原點。要還原到某則訊息送出前的狀態，就用那則訊息的 UUID。
+3. **還原**：呼叫 `rewind_files(那個UUID)`。若在串流結束後才還原，要用 `resume=session_id` 重新開啟工作階段，送出空字串 prompt，再於回應迴圈內呼叫 `rewind_files()`。
+
+注意事項（文件所載）：
+- 還原只會把磁碟上的檔案恢復，不會回滾對話本身，對話紀錄與上下文都保持不變。
+- 只追蹤 Write、Edit、NotebookEdit 工具造成的修改；Bash 指令（例如 `sed -i`）造成的變更不會被還原，除非主對話已用 Write 或 Edit 編輯過該檔案。
+- 子代理（subagent）的編輯不會被追蹤。
+- 建立、移動或刪除目錄不會被還原。
+- 檢查點只對建立它的那個工作階段有效。
+
+文件中的範例：`enable_file_checkpointing=True`、`extra_args={""replay-user-messages"": None}`、`client.rewind_files(checkpoint_id)`。"
+haiku,medium,1,B-organized,Q04,paraphrase,True,False,,True,True,True,1.0,False,5,1,9.288,0.00354302,True,"要設為 1 的環境變數是 `CLAUDE_CODE_OTEL_DIAG_STDERR`，設定 `CLAUDE_CODE_OTEL_DIAG_STDERR=1`，並和匯出器的變數一起設定。
+
+文件說明：預設情況下 CLI 會靜默處理匯出錯誤（端點連不上或拒收資料時，代理照常執行，遙測資料被丟棄，應用程式看不到錯誤）。設定這個變數後，可以透過 SDK 的 `stderr` callback（Python）或 `stderr` 選項（TypeScript）讀取診斷訊息。此功能需要 Claude Code v2.1.179 以上版本。
+
+此外，文件建議可先到收集端檢查是否收到 spans、metrics 和 log events。"
+haiku,medium,1,B-organized,Q05,version,True,False,False,True,True,True,1.0,False,2,1,4.396,0.0018464100000000002,True,"遷移後的 package.json 設定：
+
+```json
+""@anthropic-ai/claude-agent-sdk"": ""^0.3.0""
+```
+
+套件名稱為 `@anthropic-ai/claude-agent-sdk`，版本範圍範例為 `^0.3.0`（原本的 `@anthropic-ai/claude-code` 與 `^0.0.42` 需移除）。"
+haiku,medium,1,B-organized,Q06,version,True,False,False,True,True,True,0.5,False,4,1,8.155,0.004110290000000001,True,"改用 `query()`，多輪對話的輸入型別是 `AsyncIterable<SDKUserMessage>`，恢復既有 session 則用 `options.resume`。
+
+多輪對話（以 `query()` 傳入 AsyncIterable<SDKUserMessage>）：
+
+```typescript
+import { query } from ""@anthropic-ai/claude-agent-sdk"";
+
+async function* createInputStream() {
+  yield {
+    type: ""user"",
+    session_id: """",
+    message: { role: ""user"", content: [{ type: ""text"", text: ""What is 5 + 3?"" }] },
+    parent_tool_use_id: null
+  };
+  yield {
+    type: ""user"",
+    session_id: """",
+    message: { role: ""user"", content: [{ type: ""text"", text: ""Multiply by 2"" }] },
+    parent_tool_use_id: null
+  };
+}
+
+const q = query({
+  prompt: createInputStream(),
+  options: { model: ""claude-opus-4-7"" }
+});
+```
+
+恢復 session（取得先前的 session ID 後）：
+
+```typescript
+const resumedQuery = query({
+  prompt: ""What number did I ask you to remember?"",
+  options: { model: ""claude-opus-4-7"", resume: sessionId }
+});
+```
+
+注意：文件中的 V1 範例以 `for await (const msg of q)` 讀取輸出；此處只列出替代的輸入寫法。文件範例中 `session_id` 為空字串，文件未說明其他取值。"
+haiku,medium,1,B-organized,Q07,multi_doc,True,False,,True,False,True,1.0,False,4,0,7.551,0.0024024600000000004,True,"1. 驗收儲存介接器的測試函式是 `run_session_store_conformance`（從 `claude_agent_sdk.testing` 匯入）。用法是把你的介接器工廠（零參數的 callable）傳進去，例如 `await run_session_store_conformance(MyRedisStore)`。它會檢查 `append`、`load` 與選用方法是否符合行為契約；選用方法沒有實作時，對應測試會自動略過。
+
+2. 啟用追蹤傳遞（W3C trace context，即 `TRACEPARENT`／`TRACESTATE` 注入）後，若 Bash 指令自行產生 OpenTelemetry spans，這些 spans 會掛在 `claude_code.tool.execution` 這個父 span 底下。
+
+注意：文件標示追蹤功能仍是 beta，span 名稱與屬性之後可能變動。"
+haiku,medium,1,B-organized,Q08,multi_doc,True,False,,True,True,True,1.0,False,3,2,6.025,0.0040226,True,"兩個答案都在文件中找到：
+
+1. **ENABLE_TOOL_SEARCH 應填 `auto:5`**。文件說明 `auto` 預設是在可延後的工具定義達到上下文視窗的 10% 時才啟用搜尋，`auto:N` 則可自訂百分比，`auto:5` 即為達到 5% 時啟用。在 TypeScript 中要放在 `query()` 的 `options.env` 裡，並保留 `...process.env`，因為 `env` 會取代整個子程序的環境變數。
+
+2. **Zod 轉 JSON Schema 時 target 應填 `draft-7`**。文件說明 SDK 只接受 JSON Schema draft-07，較新的版本會被拒絕；Zod 預設是 draft 2020-12，因此要寫成 `z.toJSONSchema(schema, { target: ""draft-7"" })`。
+
+找不到其他需要注意的衝突；文件也提到 `CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS` 會讓搜尋保持關閉，無法被 `ENABLE_TOOL_SEARCH` 覆蓋。"
+haiku,medium,1,B-organized,Q09,unanswerable,True,False,,,,,,False,3,0,6.726,0.0022277,False,"找不到答案。目前資料夾的文件中沒有提到 Ruby、RubyGems 或 Ruby 版的 Claude Agent SDK，因此無法提供套件名稱或初始化 client 的程式碼。
+
+文件中可查到的 SDK 只有 TypeScript 與 Python 兩種（例如 `docs/agent-sdk/typescript.md` 與 `docs/agent-sdk/python.md` 的參考文件，以及各頁中的 `query()`、`ClaudeAgentOptions` 等範例）。如果要在 Rails 後端使用 Agent SDK，文件中能確認的只有這兩種語言的版本；Ruby 套件的資訊需要另外向官方來源確認。"
+haiku,medium,1,B-organized,Q10,unanswerable,True,False,,,,,,False,4,0,8.624,0.0035437000000000003,False,"找不到答案。目前資料夾的文件中沒有 Claude Agent SDK 在單機同時執行 100 個 session 時的 P95 首次回應延遲（毫秒）benchmark，也沒有對應的測試 CPU 與記憶體規格。
+
+我搜尋了 docs/ 下的內容（包括 P95、百分位、benchmark、latency、CPU、memory、100 sessions 等關鍵字）。相關內容只有：
+- docs/agent-sdk/hosting.md 說明每個 session 對應一個子行程，並建議用「可用 RAM ÷ 每個 session 的 RAM 上限」估算單機承載量，但沒有給出實測數字。
+- 同一文件提到「每個 agent 1 GiB RAM、1 CPU 是合理起點」，這是一般建議值，並非官方 benchmark 的測試規格，且沒有 100 個 session 的測試結果。
+- docs/agent-sdk/typescript.md 提到 spare 程序約佔 230 到 260 MB，以及 docs/agent-sdk/secure-deployment.md 提到 Firecracker 開機時間，兩者都與本題的延遲 benchmark 無關。
+
+因此不建議在容量規劃中引用這些文件作為官方 benchmark。若需要數字，建議依 hosting.md 的方法，在實際環境中實測每個 session 的峰值 RSS 與首次回應延遲，或向 Anthropic 官方確認是否有公開的 benchmark 報告。"
+haiku,medium,1,C-indexed,Q01,lookup,True,False,,True,False,True,1.0,True,4,0,7.518,0.0040479999999999995,True,"應使用 `reloadPlugins()` 的 `addPlugins` 選項，它是一個 `SdkPluginConfig` 項目清單，每個項目格式為 `{ type: ""local"", path }`，且 `path` 必須是絕對路徑。例如：`q.reloadPlugins({ addPlugins: [{ type: ""local"", path: ""/home/user/plugins/another-plugin"" }] })`。加入的資料夾會保留在該 session 中，之後再次呼叫 `reloadPlugins()` 時不需要再傳入。
+
+這個選項最低需要 TypeScript Agent SDK **v0.3.301**（同時需要 Claude Code v2.1.301 或更新版本）。
+
+來源文件中兩處說法一致：typescript.md 的「Load more plugin folders with addPlugins」段落與 plugins.md 的「Add plugins to a running session」段落。INDEX.md 中只列出這兩份相關文件，沒有同主題的其他版本。"
+haiku,medium,1,C-indexed,Q02,lookup,True,False,,True,True,True,1.0,True,3,1,7.477,0.004278550000000001,True,"找到答案。依 docs/agent-sdk/mcp.md 的「Connection timeouts」一節：
+
+- **建立連線的等待上限**：用 `MCP_TIMEOUT`（單位為毫秒），預設 30 秒（30000 毫秒）。
+- **工具呼叫的執行時間上限**：用 `MCP_TOOL_TIMEOUT`。
+
+另外，文件提到在 TypeScript 中，可以用 `createSdkMcpServer()` 的 `timeout` 選項，為單一 SDK MCP server 設定工具呼叫上限，它會取代該 server 的 `MCP_TOOL_TIMEOUT`。"
+haiku,medium,1,C-indexed,Q03,paraphrase,True,False,,True,True,True,1.0,True,2,1,7.466,0.00471611,True,"要用的是檔案檢查點（file checkpointing）功能。
+
+1. **事先開啟的選項**：在 `ClaudeAgentOptions` 設定 `enable_file_checkpointing=True`。另外還要加上 `extra_args={""replay-user-messages"": None}`，這樣串流中的使用者訊息才會帶有 UUID。每則開始一個回合的使用者訊息 UUID 就是還原點（工具結果訊息的 UUID 不是還原點）。
+
+2. **還原時呼叫的方法**：`rewind_files(使用者訊息UUID)`（Python 的 `ClaudeSDKClient` 方法）。文件建議在串流結束後，先以原 `session_id` 用 `resume=session_id` 重新開啟工作階段（prompt 傳空字串 `""""`），在該連線上呼叫 `rewind_files()`，而且新的 options 也要開啟 `enable_file_checkpointing=True`。
+
+還原只會把磁碟上的檔案恢復，不會倒回對話本身，對話紀錄與上下文都保留，因此可以繼續處理。
+
+注意事項：
+- 只追蹤 Write、Edit、NotebookEdit 工具造成的變更。文件說明 Bash 指令（例如 `sed -i`）的修改不會被還原，子代理的編輯也不會被追蹤。
+- 串流結束後直接呼叫 `rewind_files()` 會出現 ""ProcessTransport is not ready for writing"" 錯誤，必須先用上述 resume 的方式。
+- 檢查點只對建立它的工作階段有效。
+- 只能還原檔案內容；目錄的建立、搬移或刪除不會被還原。
+
+你的情況是內建編輯工具改壞檔案，符合此功能的範圍。"
+haiku,medium,1,C-indexed,Q04,paraphrase,True,False,,True,True,True,1.0,True,8,1,16.955,0.00730016,True,"要設為 1 的環境變數是 `CLAUDE_CODE_OTEL_DIAG_STDERR`，即 `CLAUDE_CODE_OTEL_DIAG_STDERR=1`。
+
+文件說明：CLI 預設在匯出失敗時靜默處理（端點連不上或拒收資料時，代理照常執行，但遙測被丟棄，應用程式看不到錯誤）。設定這個變數後，匯出器的診斷訊息會透過 SDK 的 `stderr` 回呼（Python）或 `stderr` 選項（TypeScript）讀取。需與匯出器相關變數（如 `OTEL_EXPORTER_OTLP_ENDPOINT`、`CLAUDE_CODE_ENABLE_TELEMETRY=1`）一起設定，並需要 Claude Code v2.1.179 或更新版本。
+
+文件也建議先到收集端確認是否收到 spans、metrics 與 log events。"
+haiku,medium,1,C-indexed,Q05,version,True,False,False,True,True,True,1.0,True,2,1,3.642,0.00275599,True,"遷移指南第 4 步（Update package.json）的範例：
+
+```json
+""@anthropic-ai/claude-agent-sdk"": ""^0.3.0""
+```
+
+套件名稱改為 `@anthropic-ai/claude-agent-sdk`，版本範圍由 `^0.0.42` 改為 `^0.3.0`。"
+haiku,medium,1,C-indexed,Q06,version,True,False,False,True,True,True,0.5,True,4,1,8.668,0.0043045800000000006,True,"改用 `query()`，多輪對話時把 `prompt` 傳入 `AsyncIterable<SDKUserMessage>`（非同步產生器）。要接續已儲存的工作階段，則在 options 設定 `resume`。以下只列替代寫法：
+
+```typescript
+import { query } from ""@anthropic-ai/claude-agent-sdk"";
+
+// 多輪對話：以 AsyncIterable<SDKUserMessage> 作為 prompt
+async function* createInputStream() {
+  yield {
+    type: ""user"",
+    session_id: """",
+    message: { role: ""user"", content: [{ type: ""text"", text: ""What is 5 + 3?"" }] },
+    parent_tool_use_id: null
+  };
+  yield {
+    type: ""user"",
+    session_id: """",
+    message: { role: ""user"", content: [{ type: ""text"", text: ""Multiply by 2"" }] },
+    parent_tool_use_id: null
+  };
+}
+
+const q = query({
+  prompt: createInputStream(),
+  options: { model: ""claude-opus-4-7"" }
+});
+
+for await (const msg of q) {
+  if (msg.type === ""assistant"") { /* 處理輸出 */ }
+}
+```
+
+```typescript
+// 恢復既有工作階段：options.resume 帶入 session ID
+const resumedQuery = query({
+  prompt: ""What number did I ask you to remember?"",
+  options: { model: ""claude-opus-4-7"", resume: sessionId }
+});
+```
+
+對應的舊 API：`unstable_v2_createSession` → `query()` + `AsyncIterable<SDKUserMessage>`；`unstable_v2_resumeSession` → `query()` + `options.resume`。注意：文件說明 0.3.142 已移除 `unstable_v2_createSession`、`unstable_v2_resumeSession`、`unstable_v2_prompt`、`SDKSession`、`SDKSessionOptions`。文件中的 `session_id: """"` 是範例原文，未另外說明其意義。"
+haiku,medium,1,C-indexed,Q07,multi_doc,True,False,,True,True,True,1.0,True,3,2,7.806,0.00598181,True,"1. 儲存介接器的行為契約測試函式：Python 版是 `run_session_store_conformance`（從 `claude_agent_sdk.testing` 匯入）。用法是在 pytest 測試中呼叫 `await run_session_store_conformance(工廠)`，工廠為零參數的可呼叫物件，每個契約會呼叫一次以建立全新、空白的儲存。TypeScript 版則是把範例目錄中的 `shared/conformance.ts` 複製到測試套件裡使用。需先 `pip install pytest`。
+
+2. 透過 Bash 啟動的程式若自行產生 OpenTelemetry spans，這些 spans 會巢狀掛在 `claude_code.tool.execution` 這個父 span 底下。該 span 包住整個指令的執行。前提是啟用追蹤傳遞：呼叫 `query()` 時應用程式端有作用中的 OpenTelemetry span，SDK 會注入 `TRACEPARENT`/`TRACESTATE`，CLI 會把 `TRACEPARENT` 轉送給每個 Bash 指令。若在 `options.env` 中明確設定 `TRACEPARENT`，則會跳過自動注入。追蹤仍為 beta，需設定 `CLAUDE_CODE_ENHANCED_TELEMETRY_BETA=1` 與 `OTEL_TRACES_EXPORTER`。
+
+（文件會隨版本變動，span 名稱與屬性在 beta 期間可能改變；若驗收依據特定版本，建議再以該版本實測確認。）"
+haiku,medium,1,C-indexed,Q08,multi_doc,True,False,,True,True,True,1.0,True,4,2,6.309,0.00604783,True,"1. ENABLE_TOOL_SEARCH 要填 ""auto:5""。依 tool-search.md，`auto` 會在可延後的工具定義達到模型上下文視窗的 10% 時才啟用搜尋，`auto:N` 則可自訂百分比，所以 5% 就是 `auto:5`。數值越低，越早啟用。文件的 TypeScript 範例是在 query() 的 options.env 中設定 `ENABLE_TOOL_SEARCH: ""auto:5""`，並保留 `...process.env`。
+
+2. Zod 轉 JSON Schema 時，target 要填 ""draft-7""，即 `z.toJSONSchema(schema, { target: ""draft-7"" })`。文件說明 SDK 只支援 JSON Schema draft-07，會拒絕較新版本的 schema；Zod 預設是 draft 2020-12，所以必須明確指定 ""draft-7""。"
+haiku,medium,1,C-indexed,Q09,unanswerable,True,False,,,,,,True,3,0,9.01,0.0037784999999999997,False,"在目前資料夾的文件中找不到 Claude Agent SDK 官方 Ruby 套件的 RubyGems 套件名稱，也找不到 Ruby 的初始化 client 程式碼。
+
+我已依 CLAUDE.md 先查 INDEX.md，再以「ruby」「gem」等關鍵字搜尋全部文件，沒有任何文件提到 Ruby 或 RubyGems。INDEX.md 列出的 Agent SDK 文件只涵蓋 Python 與 TypeScript 的安裝與 API（例如 overview.md 寫明「programmable in Python and TypeScript」，安裝指令都是 npm 的 @anthropic-ai/claude-agent-sdk 或 Python 的 claude-agent-sdk）。因此無法從這些資料確認 Ruby 套件是否存在、名稱為何，也無法提供 Ruby 的程式碼範例。
+
+如要使用 Ruby，建議：
+1. 向負責 Agent SDK 的團隊或官方文件確認是否有 Ruby 版本，以及 RubyGems 上的正式套件名稱。
+2. 在目前資料夾加入對應的 Ruby 文件後，我可以再依文件回答。
+3. 若只是要在 Rails 後端呼叫 Claude，而不一定要 Agent SDK，可以考慮改用 Python 或 TypeScript 的 SDK 作為子行程/服務，再由 Rails 呼叫它（hosting.md 說明 SDK 以 claude CLI 子行程運作，可作為參考架構）。"
+haiku,medium,1,C-indexed,Q10,unanswerable,True,False,,,,,,True,6,1,11.759,0.00502067,False,"找不到答案。目前資料夾的文件中沒有「Claude Agent SDK 單機 100 個 session 的 P95 首次回應延遲（毫秒）」的 benchmark 數據，也沒有對應的測試 CPU 與記憶體規格。
+
+我依 INDEX.md 以關鍵字（benchmark、P95、latency、延遲、100 sessions、CPU、記憶體、throughput、concurrency 等）搜尋整個資料夾，只有以下相關但不符合的內容：
+
+- docs/agent-sdk/hosting.md 第 196–198 行：建議每個 agent 起始資源為「1 GiB RAM、5 GiB 磁碟、1 CPU」，並註明這是「合理的起點」而非測試結果，且記憶體會隨工作階段長度與工具使用增加。
+- docs/agent-sdk/hosting.md 第 246–256 行：給出容量公式 `agents per host = (host RAM - overhead) / (per-session RAM ceiling)`，並建議自行量測 peak RSS，沒有提供實測數字。
+- docs/agent-sdk/typescript.md 第 164 行：每個 spare 程序約佔 230–260 MB 記憶體，同樣不是 100 session 的基準測試。
+
+因此無法提供 P95 延遲毫秒數，也無法提供測試環境的 CPU 與記憶體規格。若要引用，建議改用上述 hosting.md 的容量規劃方法自行量測，或向提供該 benchmark 的團隊索取來源。引用時不要把 1 GiB / 1 CPU 當成測試結果。"
+haiku,medium,1,Z-closed,Q01,lookup,False,,,,,,,False,0,0,3.342,0.00086893,False,我不知道。我沒有可靠的記憶，無法確定 TypeScript SDK 的 reloadPlugins() 在同一個 session 中追加本機 plugin 目錄時應使用哪個選項，也無法確定該選項所需的最低 Agent SDK 版本。若硬要猜測，可能會給出錯誤的選項名稱或版本號，因此不提供猜測。如需正確答案，建議查閱官方 Agent SDK 的 TypeScript 文件或 changelog。
+haiku,medium,1,Z-closed,Q02,lookup,True,,,,,,,False,0,0,3.767,0.0007133300000000001,True,建立連線的等待上限用 MCP_TIMEOUT，工具呼叫的執行時間上限用 MCP_TOOL_TIMEOUT。這是我憑記憶作答，未查證；預設值我不確定，所以沒有列出。
+haiku,medium,1,Z-closed,Q03,paraphrase,True,,,,,,,False,0,0,5.73,0.00094933,True,"需要兩步：
+
+1. 建立 `ClaudeAgentOptions` 時設定 `enable_file_checkpointing=True`，SDK 才會在代理用內建編輯工具（如 Write、Edit、MultiEdit）改檔前保存檔案快照。
+2. 還原時呼叫 `ClaudeSDKClient` 的 `rewind_files(user_message_id)`，參數是你要回到的那則使用者訊息的 ID。磁碟上的檔案會回到該訊息送出前的狀態，對話本身繼續保留。
+
+補充：使用者訊息的 ID 要從接收到的訊息中取得（每則 UserMessage 的 uuid）。SDK 文件中通常會搭配 `extra_args={""replay-user-messages"": None}` 讓串流回傳使用者訊息，否則可能拿不到 ID。另外，透過 Bash 執行的指令所造成的檔案變動，通常不在這個檔案快照的追蹤範圍內。
+
+以上是憑記憶作答，未查證官方文件，參數名稱與細節請以 Claude Agent SDK 的最新文件為準。"
+haiku,medium,1,Z-closed,Q04,paraphrase,False,,,,,,,False,0,0,4.467,0.0008635299999999999,False,"我不知道。我無法從自己的知識確定是哪一個環境變數可以讓匯出錯誤輸出到標準錯誤。我不想猜一個變數名稱，因為猜錯可能會浪費您的排查時間。
+
+建議您這樣確認：
+1. 查看該代理或其監控/匯出套件的官方文件或設定說明，搜尋 ""export error""、""stderr""、""debug""、""verbose"" 等關鍵字。
+2. 如果是 OpenTelemetry 相關的匯出器，可以查它的日誌等級設定（例如 OTEL_LOG_LEVEL）是否會顯示匯出失敗訊息，但這一點我也未經確認。
+3. 若手邊有原始碼，可以搜尋程式中捕捉例外並忽略錯誤的地方（例如空的 catch 區塊），通常能直接找到控制輸出的開關。
+
+如果您告訴我代理或監控工具的名稱與版本，或允許我查看專案中的設定與程式碼，我可以幫您找出正確的變數。"
+haiku,medium,1,Z-closed,Q05,version,False,,,,,,,False,0,0,4.116,0.0008795300000000001,False,"我不確定遷移指南 package.json 範例中的確切版本範圍，因此無法確認答案。
+
+我的印象是，這個 SDK 已更名為 Claude Agent SDK，套件名稱可能是 @anthropic-ai/claude-agent-sdk，但我沒有把握，且無法確定範例中的版本範圍（例如 ^0.1.0 或其他）。請直接查閱官方遷移指南的 package.json 範例來確認。"
+haiku,medium,1,Z-closed,Q06,version,False,,,,,,,False,0,0,4.428,0.00086963,False,"我不知道。我沒有關於 TypeScript Agent SDK 0.3.142 版本變更的可靠資訊，無法確定 V2 session 介面被移除後，多輪對話應改用哪個 API 或哪種輸入型別，因此不提供替代寫法，以免給出錯誤的程式碼。
+
+我記得的是 V2 preview 階段的介面（例如 unstable_v2_createSession、unstable_v2_resumeSession 與 SDKSession），但這只是早期印象，我無法確認它們在 0.3.142 的替代方案。要確認的話，建議查閱該版本的官方 changelog 或 SDK 型別定義（.d.ts），或在本機執行 npm 查看 @anthropic-ai/claude-agent-sdk 的匯出內容。"
+haiku,medium,1,Z-closed,Q07,multi_doc,False,,,,,,,False,0,0,2.925,0.00080533,False,"不確定，無法可靠回答。
+
+1. 官方用來檢驗儲存介接器是否符合行為契約的測試函式名稱：我不確定，不清楚 Python Agent SDK 是否有這樣的函式，也不知道它的名稱。
+2. 啟用追蹤傳遞後，代理透過 Bash 啟動的程式若自行產生 OpenTelemetry spans，這些 spans 掛在哪個父 span 名稱底下：我不確定，不知道確切的父 span 名稱。
+
+建議直接查閱官方 Agent SDK 文件中關於自訂會話儲存（session storage）與追蹤（tracing）的章節，或查看 SDK 的原始碼與測試目錄，以確認這兩項資訊。"
+haiku,medium,1,Z-closed,Q08,multi_doc,False,,,,,,,False,0,0,6.155,0.00112723,False,"只能部分回答，因此 found 填 false。
+
+1. ENABLE_TOOL_SEARCH：我的記憶是 Claude Code 的這個環境變數支援 `auto:<N>` 格式，其中 N 是上下文視窗的百分比門檻。要「可延後載入的工具定義占上下文 5%」才啟用搜尋，我會填 `ENABLE_TOOL_SEARCH=auto:5`。預設值是 `auto`（相當於 10%）。這個我有一定把握，但沒有查證，請以官方文件為準。
+
+2. Zod 轉 JSON Schema 的 target：我不確定 Agent SDK 支援哪一個 target。我知道 Zod 4 的 `z.toJSONSchema()` 有 `target` 選項，常見值包括 `""draft-7""`、`""draft-2020-12""`（Zod 4 的預設）與 `""openapi-3.0""`，但我不確定 SDK 要求哪一個。我不想猜，所以這部分請查 SDK 的 structured output 文件，或直接檢查 SDK 的型別定義與範例。"
+haiku,medium,1,Z-closed,Q09,unanswerable,True,,,,,,,False,0,0,4.147,0.0008499299999999999,False,"不確定，我無法確認 Anthropic 是否有官方的 Claude Agent SDK Ruby 套件，所以無法提供 RubyGems 上的套件名稱，也無法給出可靠的初始化程式碼。
+
+據我所知，Claude Agent SDK 的官方版本是 Python 和 TypeScript（分別對應 claude-agent-sdk 與 @anthropic-ai/claude-agent-sdk）。Ruby 方面，我記得的是 Anthropic 官方的 Messages API 用戶端 gem `anthropic`，但它不等於 Agent SDK，不要把兩者混為一談。
+
+建議你直接到 Anthropic 官方文件或 GitHub 的 SDK 列表確認是否已有 Ruby 版本。如果目前沒有官方 Ruby 版，可以考慮：(1) 在 Rails 後端用 `anthropic` gem 呼叫 API 自行實作 agent 迴圈；或 (2) 把 agent 部分拆成 Python/TypeScript 服務，再由 Rails 透過 HTTP 呼叫。"
+haiku,medium,1,Z-closed,Q10,unanswerable,True,,,,,,,False,0,0,3.61,0.00075633,False,"我不知道。我沒有關於 Claude Agent SDK 官方發布「單機同時執行 100 個 session、P95 首次回應延遲」的 benchmark 資料，因此無法提供延遲毫秒數，也無法說明測試所用的 CPU 與記憶體規格。我也不想猜測數字，以免被拿去當容量規劃的依據。
+
+建議：
+1. 直接查 Anthropic 官方文件與 release notes，確認是否有發布過相關 benchmark。
+2. 若找不到，就用自己的環境實測：在目標機器規格上同時跑 100 個 session，記錄每個 session 從送出請求到第一個 token 回傳的時間，再計算 P95。實測結果也會受模型、網路與 API 負載影響，建議同時記錄這些條件。"

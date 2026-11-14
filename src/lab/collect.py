@@ -33,6 +33,11 @@ def title_of(body: str, fallback: str) -> str:
     return fallback
 
 
+def clean_body(body: str) -> str:
+    """換行統一成 LF、去掉頭尾空白並以換行結尾。git 的 autocrlf 才不會事後改動內文，讓 sha 對不上。"""
+    return body.replace("\r\n", "\n").replace("\r", "\n").strip() + "\n"
+
+
 def langchain_pages(wanted: set[str]) -> list[tuple[str, str, str]]:
     """回傳 (框架, 頁面路徑, 內文)。"""
     pages = []
@@ -73,7 +78,7 @@ def collect(only: list[str] | None = None, force: bool = False) -> None:
     docs = []
     for category, slug, body in pages:
         doc_id = f"{category}/{slug}"
-        body = body.strip() + "\n"
+        body = clean_body(body)
         path = CORPUS / f"{doc_id}.md"
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(body, encoding="utf-8")

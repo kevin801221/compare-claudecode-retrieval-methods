@@ -1,4 +1,9 @@
-from lab.collect import DOC_INDEX_BANNER, SDK_LINK, title_of
+from lab.collect import DOC_INDEX_BANNER, SDK_LINK, clean_body, title_of
+
+
+def test_clean_body_normalizes_newlines():
+    # 原始文件偶爾用 CRLF；git 的 autocrlf 之後會改動它，內文和 docs.json 的 sha 就對不上
+    assert clean_body("\r\n# T\r\nline\r\n\r\n") == "# T\nline\n"
 
 
 def test_title_of():

@@ -1227,11 +1227,11 @@
     },
     {
       "id": "langchain/philosophy",
-      "title": "philosophy",
+      "title": "Philosophy",
       "category": "langchain",
       "slug": "philosophy",
-      "chars": 8917,
-      "sha": "ccb07b0c89c1114b64e2c6d3d900298c14e757f40f8e9a5dd6c8c12705bf3c71"
+      "chars": 8779,
+      "sha": "f8b538c3d57ae7d9fe5c4c92dfe6307e4b5369c460fefe9e2941aa3f8f425a53"
     },
     {
       "id": "langchain/quickstart",

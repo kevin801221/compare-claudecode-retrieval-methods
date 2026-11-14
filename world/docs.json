@@ -1,0 +1,261 @@
+{
+  "collected_at": "2026-11-14",
+  "docs": [
+    {
+      "id": "agent-sdk/agent-loop",
+      "title": "How the agent loop works",
+      "category": "agent-sdk",
+      "slug": "agent-loop",
+      "chars": 40757,
+      "sha": "6a6cef346a5e9bcd5f2cebed582b732e0abe9a5ad87465a4d475b04224e4fe4a"
+    },
+    {
+      "id": "agent-sdk/claude-code-features",
+      "title": "Use Claude Code features in the SDK",
+      "category": "agent-sdk",
+      "slug": "claude-code-features",
+      "chars": 20796,
+      "sha": "d946e4b687423f9f27d644ab1c4458abaa6c4016d1af254345b6bcebe1df3b04"
+    },
+    {
+      "id": "agent-sdk/configuration",
+      "title": "Configure your agent",
+      "category": "agent-sdk",
+      "slug": "configuration",
+      "chars": 18669,
+      "sha": "ffac6b14efae1c9f11e3789ba74faf969f09bd12b5ec5d18a40d543e0dbf582b"
+    },
+    {
+      "id": "agent-sdk/cost-tracking",
+      "title": "Track cost and usage",
+      "category": "agent-sdk",
+      "slug": "cost-tracking",
+      "chars": 26766,
+      "sha": "a8fa16e1983cda2df4dd94f7ed159f6c93696455fe19371a894514014a662da1"
+    },
+    {
+      "id": "agent-sdk/custom-tools",
+      "title": "Give Claude custom tools",
+      "category": "agent-sdk",
+      "slug": "custom-tools",
+      "chars": 40597,
+      "sha": "53413c756c9fd145b680c347f9ef2e4d345d48fd5e2a38e138982dda47f27b99"
+    },
+    {
+      "id": "agent-sdk/examples",
+      "title": "Examples",
+      "category": "agent-sdk",
+      "slug": "examples",
+      "chars": 2020,
+      "sha": "a02539aae77d24cf5943b5c414892845973e98a725c785b0195425384b2941aa"
+    },
+    {
+      "id": "agent-sdk/file-checkpointing",
+      "title": "Rewind file changes with checkpointing",
+      "category": "agent-sdk",
+      "slug": "file-checkpointing",
+      "chars": 27946,
+      "sha": "e550f14a54bc1c778991f20b519f1ac82b956dd613948ddeabd7f3aabf276cef"
+    },
+    {
+      "id": "agent-sdk/hooks",
+      "title": "Intercept and control agent behavior with hooks",
+      "category": "agent-sdk",
+      "slug": "hooks",
+      "chars": 49153,
+      "sha": "c295029c44d864e2d6afe7c5f662348128970f971b46679d423edc1eefaa45e4"
+    },
+    {
+      "id": "agent-sdk/hosting",
+      "title": "Hosting the Agent SDK",
+      "category": "agent-sdk",
+      "slug": "hosting",
+      "chars": 24306,
+      "sha": "7b76f0c7f06cd498f422f2938920ccfe2cc06f26fe966cdfb7909acf456aad9d"
+    },
+    {
+      "id": "agent-sdk/mcp",
+      "title": "Connect to external tools with MCP",
+      "category": "agent-sdk",
+      "slug": "mcp",
+      "chars": 40097,
+      "sha": "29c2481afcf01f929f7954a9c9029cf31c329d05c62145208cdbd16145c0898d"
+    },
+    {
+      "id": "agent-sdk/migration-guide",
+      "title": "Migrate to Claude Agent SDK",
+      "category": "agent-sdk",
+      "slug": "migration-guide",
+      "chars": 6908,
+      "sha": "9dbe97af0649e80b010e8ad2212aa631332a9f9ac920b616ed532df5c47592c2"
+    },
+    {
+      "id": "agent-sdk/modifying-system-prompts",
+      "title": "Modifying system prompts",
+      "category": "agent-sdk",
+      "slug": "modifying-system-prompts",
+      "chars": 36015,
+      "sha": "808cb6fa108c010320d28e716d285c500a6088a2ecb9e68a45a34802e5cf3339"
+    },
+    {
+      "id": "agent-sdk/observability",
+      "title": "Observability with OpenTelemetry",
+      "category": "agent-sdk",
+      "slug": "observability",
+      "chars": 18120,
+      "sha": "791a69d4db18a2c245c40120c7f15794208e26bf35ab53a78f2db312e0a54880"
+    },
+    {
+      "id": "agent-sdk/overview",
+      "title": "Agent SDK overview",
+      "category": "agent-sdk",
+      "slug": "overview",
+      "chars": 7199,
+      "sha": "04a1f9f705c7bf550396d9fdd74345ae8bbff5b07d64f0e06194f14e4b7701f1"
+    },
+    {
+      "id": "agent-sdk/permissions",
+      "title": "Configure permissions",
+      "category": "agent-sdk",
+      "slug": "permissions",
+      "chars": 35201,
+      "sha": "aba5e15bbf9d8d50ab3196f7df0418cf1e46342e9a3c946a4d114ae20cb6ad17"
+    },
+    {
+      "id": "agent-sdk/plugins",
+      "title": "Plugins in the SDK",
+      "category": "agent-sdk",
+      "slug": "plugins",
+      "chars": 13357,
+      "sha": "66c4db39458e9303e44a61aea140ff4477629496e296d64d640f3cc8dd0398ce"
+    },
+    {
+      "id": "agent-sdk/python",
+      "title": "Agent SDK reference - Python",
+      "category": "agent-sdk",
+      "slug": "python",
+      "chars": 165059,
+      "sha": "7b051aff665e71b618eb76555a851734b307a80a62bd967e3c7393e541f94cb1"
+    },
+    {
+      "id": "agent-sdk/quickstart",
+      "title": "Quickstart",
+      "category": "agent-sdk",
+      "slug": "quickstart",
+      "chars": 15333,
+      "sha": "2aeb668afe38212f59b9505f051e98280dcdb81c76e91f2a656b0e9e3f2c4870"
+    },
+    {
+      "id": "agent-sdk/secure-deployment",
+      "title": "Securely deploying AI agents",
+      "category": "agent-sdk",
+      "slug": "secure-deployment",
+      "chars": 21469,
+      "sha": "462e91e4f52a6f9eef864cf564cfa86291274842ee8551e705906208d552cdff"
+    },
+    {
+      "id": "agent-sdk/session-storage",
+      "title": "Persist sessions to external storage",
+      "category": "agent-sdk",
+      "slug": "session-storage",
+      "chars": 24320,
+      "sha": "2f5ebabc6da9da2764c03e813784c8fd24c642cdf19adf31871321dd90784651"
+    },
+    {
+      "id": "agent-sdk/sessions",
+      "title": "Work with sessions",
+      "category": "agent-sdk",
+      "slug": "sessions",
+      "chars": 22520,
+      "sha": "04618a50ba45a22459d13a5ff17e46f71045e5b8b0ef38da3884bf17154879d4"
+    },
+    {
+      "id": "agent-sdk/skills",
+      "title": "Extend agents with skills",
+      "category": "agent-sdk",
+      "slug": "skills",
+      "chars": 28242,
+      "sha": "7c9fea737b63263a2a27d1bac6ec925f796ee4e0c0d8f5e10bebb7359a0d7226"
+    },
+    {
+      "id": "agent-sdk/streaming-output",
+      "title": "Stream responses in real-time",
+      "category": "agent-sdk",
+      "slug": "streaming-output",
+      "chars": 14853,
+      "sha": "6d7641d529cffd8f7421463ab8f16ece4a2120e14904ae2e8f0bcca8a6af6b77"
+    },
+    {
+      "id": "agent-sdk/streaming-vs-single-mode",
+      "title": "Streaming Input",
+      "category": "agent-sdk",
+      "slug": "streaming-vs-single-mode",
+      "chars": 9010,
+      "sha": "75b9c415ac31843dcbfb127f41cf823542708f5d578e658e2cf2b3813d57d0fc"
+    },
+    {
+      "id": "agent-sdk/structured-outputs",
+      "title": "Get structured output from agents",
+      "category": "agent-sdk",
+      "slug": "structured-outputs",
+      "chars": 21820,
+      "sha": "c5b004fd174e392755fe47e790b2e4a9921b9c5476e971b12ccc5ecc8c7a002b"
+    },
+    {
+      "id": "agent-sdk/subagents",
+      "title": "Subagents in the SDK",
+      "category": "agent-sdk",
+      "slug": "subagents",
+      "chars": 42371,
+      "sha": "30ec1d11f9ae472272891707bac5a917ea4cd05519bd6f9843239ec42bdf534e"
+    },
+    {
+      "id": "agent-sdk/todo-tracking",
+      "title": "Track todos",
+      "category": "agent-sdk",
+      "slug": "todo-tracking",
+      "chars": 18900,
+      "sha": "313a71d1840abb61c1dc3229c6de2ffb3b6734316c46a4607eb3383deebeb586"
+    },
+    {
+      "id": "agent-sdk/tool-search",
+      "title": "Scale to many tools with tool search",
+      "category": "agent-sdk",
+      "slug": "tool-search",
+      "chars": 11395,
+      "sha": "93e224c199acbcb6dd0747068bc42276aefe6e8db1243b8d94a389d76feb55ed"
+    },
+    {
+      "id": "agent-sdk/troubleshooting",
+      "title": "Troubleshoot the Agent SDK",
+      "category": "agent-sdk",
+      "slug": "troubleshooting",
+      "chars": 13448,
+      "sha": "bfdbeadd46078725f2298d3d241e2620062a4bb2bf5915359850e91cfd4ce3fd"
+    },
+    {
+      "id": "agent-sdk/typescript",
+      "title": "Agent SDK reference - TypeScript",
+      "category": "agent-sdk",
+      "slug": "typescript",
+      "chars": 333766,
+      "sha": "6149d6adab94bb88de20581b816a779440b1541550a63cc3eedac504aedfb837"
+    },
+    {
+      "id": "agent-sdk/typescript-v2-preview",
+      "title": "TypeScript SDK V2 session API (removed)",
+      "category": "agent-sdk",
+      "slug": "typescript-v2-preview",
+      "chars": 12279,
+      "sha": "20f5ad0203b462a43bc0f471b8d176b3503079f47c3e1e7877c29bbc639d7c21"
+    },
+    {
+      "id": "agent-sdk/user-input",
+      "title": "Handle approvals and user input",
+      "category": "agent-sdk",
+      "slug": "user-input",
+      "chars": 34595,
+      "sha": "009c4ee57d46774c75e9a8b25a30ff172867b0052a60d3fbdfed6cda60f1ce98"
+    }
+  ]
+}

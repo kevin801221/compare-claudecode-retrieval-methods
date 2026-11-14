@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**目標：** 做出可重複執行的評測工具。用 221 頁官方文件（LangChain、LangGraph、Deep Agents、Claude Agent SDK）和 Codex 出的 40 道題目，比較三種資料整理方式對 Claude Code 檢索與回答準確度的影響：A 雜亂、B 整理、C 索引。另外加上閉卷對照組，排除憑記憶就能答對的題目。
+**目標：** 做出可重複執行的評測工具。用 213 頁官方文件（LangChain、LangGraph、Deep Agents、Claude Agent SDK）和 Codex 出的 40 道題目，比較三種資料整理方式對 Claude Code 檢索與回答準確度的影響：A 雜亂、B 整理、C 索引。另外加上閉卷對照組，排除憑記憶就能答對的題目。
 
 **架構：** 每一步都是一個 `uv run lab <子指令>`，順序如下：
 
@@ -62,7 +62,7 @@
 - `https://codeload.github.com/langchain-ai/docs/tar.gz/main`：MIT 授權，路徑是 `docs-main/src/oss/{langchain,langgraph,deepagents}/**/*.mdx`，共 79、44、58 頁。
   - 頁面平均約 1.9 萬字元，最長約 11 萬字元。
   - 開頭有 frontmatter（`title:`）。
-- `https://code.claude.com/docs/llms.txt`：列出 40 個 `https://code.claude.com/docs/en/agent-sdk/<頁>.md`。
+- `https://code.claude.com/docs/llms.txt`：列出 32 個不重複的 `https://code.claude.com/docs/en/agent-sdk/<頁>.md`。同一頁會在不同段落重複出現，所以總共有 40 行。API 參考頁很長，`typescript` 約 33 萬字元，`python` 約 17 萬字元。
   - 每頁開頭有一段固定的 `> ## Documentation Index` 引言。
 
 ## 共通規則
@@ -1223,14 +1223,14 @@ Expected：2 passed
 
 Run：`uv run lab collect --only agent-sdk && head -c 400 world/corpus/agent-sdk/overview.md`
 Expected：
-- 印出 `完成：40 頁（agent-sdk 40）`。
+- 印出 `完成：32 頁（agent-sdk 32）`。
 - overview.md 第一行是 `# Agent SDK overview`，前面沒有 `> ## Documentation Index` 引言。
 
 - [ ] **Step 6：Commit**
 
 ```bash
 git add src/lab/collect.py tests/test_collect.py world/docs.json world/corpus
-git commit -m "feat: 下載官方文件；收錄試跑用的 Agent SDK 文件（40 頁）"
+git commit -m "feat: 下載官方文件；收錄試跑用的 Agent SDK 文件（32 頁）"
 ```
 
 ---
@@ -2001,7 +2001,7 @@ codex exec --full-auto "請依照 docs/codex-questions.md 出題。這次是試�
 - [ ] **Step 2：檢查題目**
 
 Run：`uv run lab check`
-Expected：第一行是 `文件 40 份，題目 10 題：…`，最後一行是 `沒有問題`，或 `沒有問題（有 N 個提醒…）`。
+Expected：第一行是 `文件 32 份，題目 10 題：…`，最後一行是 `沒有問題`，或 `沒有問題（有 N 個提醒…）`。
 如果有「問題」，就把輸出交回給 Codex 修正，修完重新檢查。
 
 - [ ] **Step 3：列出題目**
@@ -2029,7 +2029,7 @@ git commit -m "data: 試跑題目（Codex 出題，10 題）"
 - [ ] **Step 1：建置三組**
 
 Run：`uv run lab build`
-Expected：`完成：/Users/Shared/retrieval-lab-stage（40 份文件 × 3 組）`
+Expected：`完成：/Users/Shared/retrieval-lab-stage（32 份文件 × 3 組）`
 
 - [ ] **Step 2：抽查 stage 內容**
 
@@ -2039,7 +2039,7 @@ find /Users/Shared/retrieval-lab-stage -path '*/docs/*' -name '*.md' | wc -l
 head -8 /Users/Shared/retrieval-lab-stage/C-indexed/INDEX.md
 ```
 Expected：
-- 第一個指令輸出 `120`。
+- 第一個指令輸出 `96`。
 - INDEX.md 的關鍵字欄位同時有英文名詞和繁中說法。
 
 - [ ] **Step 3：Commit 建置產物**
@@ -2116,7 +2116,7 @@ git commit -m "data: 試跑結果與用量校正"
 - [ ] **Step 1：下載全部文件**
 
 Run：`uv run lab collect --force`
-Expected：`完成：221 頁（agent-sdk 40、deepagents 58、langchain 79、langgraph 44）`
+Expected：`完成：213 頁（agent-sdk 32、deepagents 58、langchain 79、langgraph 44）`
 頁數可能因為官方更新而略有不同；如果有不同，照實記錄。
 
 - [ ] **Step 2：Codex 出 40 題**
@@ -2136,11 +2136,11 @@ codex exec --full-auto "請依照 docs/codex-questions.md 出題。這次是正�
 - [ ] **Step 4：建置並 commit**
 
 Run：`uv run lab build`
-Expected：`完成：/Users/Shared/retrieval-lab-stage（221 份文件 × 3 組）`
+Expected：`完成：/Users/Shared/retrieval-lab-stage（213 份文件 × 3 組）`
 
 ```bash
 git add world build/mapping.json
-git commit -m "data: 正式版文件（221 頁）、題目（40 題）與盲建索引"
+git commit -m "data: 正式版文件（213 頁）、題目（40 題）與盲建索引"
 ```
 
 - [ ] **Step 5：閉卷對照，並跑第 1 輪**

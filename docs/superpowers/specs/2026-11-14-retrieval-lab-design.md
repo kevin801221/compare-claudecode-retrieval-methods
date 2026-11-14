@@ -24,7 +24,7 @@
 | 項目 | 決定 |
 |---|---|
 | 目的 | 比較三種整理方式（A/B 實驗） |
-| 文件 | 官方原文 221 頁：LangChain、LangGraph、Deep Agents、Claude Agent SDK（第 4.1 節） |
+| 文件 | 官方原文 213 頁：LangChain、LangGraph、Deep Agents、Claude Agent SDK（第 4.1 節） |
 | 題目 | 由 Codex 出題（和作答的 Claude 不同家），再由程式驗證、使用者審題 |
 | 對照組 | 閉卷：不給文件問一次，找出「憑記憶就答得出來」的題目 |
 | 實驗組 | A 雜亂／B 整理／C 索引（第 5 節） |
@@ -64,12 +64,12 @@ claude -p <prompt> --model haiku --effort medium --tools Read,Grep,Glob \
 
 | 框架 | 頁數 | 來源 | 授權 |
 |---|---|---|---|
-| Claude Agent SDK | 40 | `code.claude.com/docs/llms.txt` 列出的 `agent-sdk/*.md` | Anthropic 官方文件 |
+| Claude Agent SDK | 32 | `code.claude.com/docs/llms.txt` 列出的 `agent-sdk/*.md` | Anthropic 官方文件 |
 | Deep Agents | 58 | `langchain-ai/docs` repo 的 `src/oss/deepagents/**/*.mdx` | MIT |
 | LangChain | 79 | 同上，`src/oss/langchain/` | MIT |
 | LangGraph | 44 | 同上，`src/oss/langgraph/` | MIT |
 
-- **規模：** 頁面平均約 1.9 萬字元，最長的約 11 萬字元，總計約 400 萬字元。
+- **規模：** LangChain 系列的頁面平均約 1.9 萬字元。Agent SDK 的 API 參考頁最長：TypeScript 版約 33 萬字元，Python 版約 17 萬字元。全部合計約 470 萬字元。
 - **處理方式：** 內文原樣保留，只去掉 Agent SDK 每頁開頭固定的「Documentation Index」引言。
 - **文件內的連結：** 原樣保留。B、C 組的檔名跟連結對得上，A 組對不上，這本身就是「整理方式」的一部分。
 - **著作權：** `world/corpus/` 只供個人學習。repo 不公開推送，網頁上也不放文件原文。
@@ -126,8 +126,8 @@ claude -p <prompt> --model haiku --effort medium --tools Read,Grep,Glob \
 
 | 階段 | 文件 | 題數 |
 |---|---|---|
-| 試跑 | 只用 Agent SDK 的 40 頁 | 10 題，每種題型 2 題 |
-| 正式 | 全部 221 頁 | 40 題，每種題型 8 題，四個框架都要出到題 |
+| 試跑 | 只用 Agent SDK 的 32 頁 | 10 題，每種題型 2 題 |
+| 正式 | 全部 213 頁 | 40 題，每種題型 8 題，四個框架都要出到題 |
 
 文件 id 以路徑為準，所以試跑的題目換到正式版仍然有效，可以直接沿用。
 
@@ -152,7 +152,7 @@ claude -p <prompt> --model haiku --effort medium --tools Read,Grep,Glob \
 
 | 組別 | 資料夾 | 內容 |
 |---|---|---|
-| A 雜亂 | `A-messy/` | `docs/doc_001.md` 到 `doc_221.md`，用固定種子打亂順序，全部放同一層 |
+| A 雜亂 | `A-messy/` | `docs/doc_001.md` 到 `doc_213.md`，用固定種子打亂順序，全部放同一層 |
 | B 整理 | `B-organized/` | `docs/<框架>/<頁面路徑>.md`，例如 `docs/langgraph/persistence.md` |
 | C 索引 | `C-indexed/` | B 的內容，再加上 `INDEX.md` 和 `CLAUDE.md` |
 
@@ -309,7 +309,7 @@ Git 使用獨立的 repo。作者是 `kevin801221 <kevin801221@users.noreply.git
      - C 組有沒有「答對但沒碰 gold 文件」的情況。
      - 實際用量。
 3. 正式版：
-   1. `lab collect --force`（221 頁）→ Codex 出 40 題（可以沿用試跑的題目）→ `lab check` → 審題。
+   1. `lab collect --force`（213 頁）→ Codex 出 40 題（可以沿用試跑的題目）→ `lab check` → 審題。
    2. `lab build` → `lab closed` → 先跑第 1 輪 → 報表。
 4. **用正式版第 1 輪判斷難度。** 如果多數題型三組都是 100% 或都是 0%，就三組一視同仁地調整題目，然後重新出題。舊結果因為 world_id 不同，會自動不納入統計。
 5. 難度合適之後，補跑第 2、3 輪 → `report` → 發布網頁。

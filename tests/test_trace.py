@@ -87,7 +87,15 @@ def test_summarize_ok_row():
     assert row["tool_calls"] == 5                             # StructuredOutput 不算
     assert row["input_tokens"] == 1110 and row["output_tokens"] == 50
     assert row["claude_version"] == "2.1.325"
-    assert row["index_used"] is False
+    assert row["index_used"] is False and row["wiki_used"] is False
+
+
+def test_wiki_used_flag():
+    stream = "\n".join([INIT, tool_use("w", "Read", {"file_path": f"{ROOT}/wiki/index.md"}),
+                        tool_result("w", {"type": "text"}), RESULT])
+    aux = {"index_used": {"INDEX.md"}, "wiki_used": {"wiki/index.md", "wiki/concepts/hooks.md"}}
+    row = summarize(parse_stream(stream), [ROOT], KNOWN, aux)
+    assert row["wiki_used"] is True and row["index_used"] is False and row["files_read"] == []
 
 
 def test_summarize_without_result_is_error():

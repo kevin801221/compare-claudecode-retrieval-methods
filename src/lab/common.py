@@ -15,14 +15,16 @@ DOCS_JSON = WORLD / "docs.json"
 QUESTIONS_JSON = WORLD / "questions.json"
 CORPUS = WORLD / "corpus"
 INDEX_CACHE = WORLD / "index_rows.json"
+WIKI = WORLD / "wiki"   # D 組：Antigravity 產出的 LLM wiki（用 lab wiki-import 匯入）
 MAPPING = ROOT / "build" / "mapping.json"
 RESULTS = ROOT / "results"
 RESULTS_JSONL = RESULTS / "results.jsonl"
 RUNS = ROOT / "runs"
 
-CONDS = ["A-messy", "B-organized", "C-indexed"]
+CONDS = ["A-messy", "B-organized", "C-indexed", "D-wiki"]
 CLOSED = "Z-closed"
-COND_LABELS = {"A-messy": "A 雜亂", "B-organized": "B 整理", "C-indexed": "C 索引", CLOSED: "閉卷"}
+COND_LABELS = {"A-messy": "A 雜亂", "B-organized": "B 整理", "C-indexed": "C 索引", "D-wiki": "D wiki",
+               CLOSED: "閉卷"}
 FRAMEWORKS = ["agent-sdk", "deepagents", "langchain", "langgraph"]
 QTYPES = ["lookup", "paraphrase", "version", "multi_doc", "unanswerable"]
 QTYPE_LABELS = {"lookup": "直接查找", "paraphrase": "換句話說", "version": "新舊版本",
@@ -70,9 +72,10 @@ def load_bodies(world: dict) -> dict[str, str]:
 
 
 def world_id() -> str:
-    """文件清單加上題目的指紋：換文件或換題目，就換一個 id，舊結果自動不納入統計。"""
+    """文件清單、題目與 wiki 的指紋：任何一項改變就換一個 id，舊結果自動不納入統計。"""
     questions = QUESTIONS_JSON.read_text(encoding="utf-8") if QUESTIONS_JSON.exists() else ""
-    return sha256(DOCS_JSON.read_text(encoding="utf-8") + questions)[:12]
+    wiki = "".join(f"{p.relative_to(WIKI)}\n{p.read_text(encoding='utf-8')}" for p in sorted(WIKI.rglob("*.md")))
+    return sha256(DOCS_JSON.read_text(encoding="utf-8") + questions + wiki)[:12]
 
 
 def read_rows() -> list[dict]:

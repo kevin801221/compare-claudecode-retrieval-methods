@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from lab.build import SETTINGS, digest, layout, render_index, stage_problems
+from lab.build import CLAUDE_MD, CLAUDE_MD_WIKI, SETTINGS, digest, layout, render_index, stage_problems
 
 DOCS = {"docs": [
     {"id": "langgraph/persistence", "title": "Persistence", "category": "langgraph", "slug": "persistence"},
@@ -15,7 +15,7 @@ def test_layout():
     maps = layout(DOCS)
     assert sorted(maps["A-messy"].values()) == ["docs/doc_001.md", "docs/doc_002.md", "docs/doc_003.md"]
     assert maps["B-organized"]["langchain/frontend/overview"] == "docs/langchain/frontend/overview.md"
-    assert maps["C-indexed"] == maps["B-organized"]
+    assert maps["C-indexed"] == maps["B-organized"] == maps["D-wiki"]
     assert layout(DOCS) == maps   # 固定種子，可以重現
 
 
@@ -49,18 +49,28 @@ def _write_stage(root, maps, bodies):
             f.write_text(bodies[doc_id], encoding="utf-8")
         (root / cond / ".claude").mkdir(parents=True, exist_ok=True)
         (root / cond / ".claude" / "settings.json").write_text(json.dumps(SETTINGS), encoding="utf-8")
-    (root / "C-indexed" / "CLAUDE.md").write_text("x")
+    (root / "C-indexed" / "CLAUDE.md").write_text(CLAUDE_MD, encoding="utf-8")
     (root / "C-indexed" / "INDEX.md").write_text("x")
+    (root / "D-wiki" / "CLAUDE.md").write_text(CLAUDE_MD_WIKI, encoding="utf-8")
+    (root / "D-wiki" / "wiki").mkdir()
+    (root / "D-wiki" / "wiki" / "index.md").write_text("目錄\n", encoding="utf-8")
+
+
+WIKI = {"index.md": "目錄\n"}
 
 
 def test_stage_problems_detects_differences(tmp_path):
     maps = layout(DOCS)
     bodies = {d["id"]: f"{d['id']}\n" for d in DOCS["docs"]}
     _write_stage(tmp_path, maps, bodies)
-    clean = [p for p in stage_problems(tmp_path, maps, bodies) if "家目錄" not in p and "上層" not in p]
+    clean = [p for p in stage_problems(tmp_path, maps, bodies, WIKI) if "家目錄" not in p and "上層" not in p]
     assert clean == []
     (tmp_path / "A-messy" / maps["A-messy"]["agent-sdk/hooks"]).write_text("改過\n", encoding="utf-8")
     (tmp_path / "B-organized" / "CLAUDE.md").write_text("x")
-    problems = stage_problems(tmp_path, maps, bodies)
+    (tmp_path / "D-wiki" / "CLAUDE.md").write_text(CLAUDE_MD, encoding="utf-8")       # 放錯成 C 組的指引
+    (tmp_path / "D-wiki" / "wiki" / "index.md").write_text("被改過\n", encoding="utf-8")
+    problems = stage_problems(tmp_path, maps, bodies, WIKI)
     assert any("A-messy" in p and "內文" in p for p in problems)
     assert any("B-organized" in p and "CLAUDE.md" in p for p in problems)
+    assert any("D-wiki" in p and "CLAUDE.md 內容" in p for p in problems)
+    assert any("D-wiki" in p and "wiki/" in p for p in problems)

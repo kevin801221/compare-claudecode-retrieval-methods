@@ -108,8 +108,11 @@ def isolation_problems(trace: dict, expected: set[str] = EXPECTED_TOOLS) -> list
     return problems
 
 
-def summarize(trace: dict, roots: list[str], known: set[str]) -> dict:
-    """把一次呼叫整理成 results.jsonl 的一列（不含 round、cond 等識別欄位）。"""
+def summarize(trace: dict, roots: list[str], known: set[str], aux: dict[str, set[str]] | None = None) -> dict:
+    """把一次呼叫整理成 results.jsonl 的一列（不含 round、cond 等識別欄位）。
+
+    aux：旗標名稱 → 輔助檔案（不是文件，例如 C 組的 INDEX.md、D 組的 wiki 頁面），碰過任一個就設為 True。
+    """
     res = trace["result"] or {}
     init = trace["init"] or {}
     usage = res.get("usage") or {}
@@ -117,7 +120,8 @@ def summarize(trace: dict, roots: list[str], known: set[str]) -> dict:
     ok = res.get("subtype") == "success" and not res.get("is_error") and isinstance(out, dict)
     out = out if isinstance(out, dict) else {}
     read, grep = touched_files(trace["calls"], roots, known)
-    idx_read, idx_grep = touched_files(trace["calls"], roots, {"INDEX.md"})
+    aux = {"index_used": {"INDEX.md"}, "wiki_used": set()} if aux is None else aux
+    flags = {name: any(touched_files(trace["calls"], roots, files)) for name, files in aux.items()}
     return {
         "status": "ok" if ok else "error",
         "error": None if ok else str(res.get("result") or res.get("subtype") or "沒有 result 事件")[:300],
@@ -126,7 +130,7 @@ def summarize(trace: dict, roots: list[str], known: set[str]) -> dict:
         "found": bool(out.get("found", False)),
         "files_read": read,
         "files_grep_content": grep,
-        "index_used": bool(idx_read or idx_grep),
+        **flags,
         "tool_calls": sum(1 for c in trace["calls"] if c["name"] != "StructuredOutput"),
         "turns": res.get("num_turns"),
         "duration_ms": res.get("duration_ms"),

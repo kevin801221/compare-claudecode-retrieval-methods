@@ -1,4 +1,4 @@
-"""文件 → A/B/C 三個 Claude Code 專案（放在家目錄外的 stage 資料夾）。"""
+"""文件 → A/B/C/D 四個 Claude Code 專案（放在家目錄外的 stage 資料夾）。"""
 from __future__ import annotations
 
 import json
@@ -8,8 +8,9 @@ import threading
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-from lab.common import (CONDS, INDEX_CACHE, MAPPING, claude_json, is_under_home, leaking_ancestors,
+from lab.common import (CONDS, INDEX_CACHE, MAPPING, WIKI, claude_json, is_under_home, leaking_ancestors,
                         load_bodies, load_json, load_world, save_json, sha256, stage_root)
+from lab.wiki import check_wiki, load_wiki
 
 SETTINGS = {"permissions": {"deny": ["Bash", "Edit", "Write", "NotebookEdit", "WebFetch", "WebSearch"]}}
 
@@ -17,6 +18,17 @@ CLAUDE_MD = """# 資料查找指引
 - 先讀 INDEX.md，依關鍵字找出候選文件，再打開文件確認內容。
 - 同一主題有多個版本時，以日期最新的為準。
 """
+
+CLAUDE_MD_WIKI = """# 資料查找指引
+- 先讀 wiki/index.md 找出相關頁面，再順著頁面裡的 [[連結]] 往下找（[[分類/檔名]] 對應 wiki/分類/檔名.md）。
+- 回答前，依頁面「## 出處」打開 docs/ 裡的原始文件確認內容。
+- 同一主題有多個版本時，以日期最新的為準。
+"""
+
+# 每一組除了 docs/ 和 .claude/ 之外，還應該有的東西
+EXTRAS = {"A-messy": set(), "B-organized": set(), "C-indexed": {"CLAUDE.md", "INDEX.md"},
+          "D-wiki": {"CLAUDE.md", "wiki"}}
+GUIDES = {"C-indexed": CLAUDE_MD, "D-wiki": CLAUDE_MD_WIKI}
 
 INDEX_PROMPT = """你是技術文件管理員。下面每一份文件只附上開頭和所有標題。請替每份文件寫一列索引：
 - summary：一句繁體中文（40 字以內），說明這份文件在講什麼。
@@ -39,7 +51,7 @@ INDEX_SCHEMA = {
 
 
 def layout(world: dict, seed: int = 42) -> dict[str, dict[str, str]]:
-    """每一組的 doc_id → 相對路徑。A 用固定種子打亂編號；B、C 用「框架/頁面路徑」。"""
+    """每一組的 doc_id → 相對路徑。A 用固定種子打亂編號；B、C、D 用「框架/頁面路徑」。"""
     ids = [d["id"] for d in world["docs"]]
     shuffled = ids[:]
     random.Random(seed).shuffle(shuffled)
@@ -47,7 +59,7 @@ def layout(world: dict, seed: int = 42) -> dict[str, dict[str, str]]:
     organized = {d["id"]: f"docs/{d['category']}/{d['slug']}.md" for d in world["docs"]}
     if len(set(organized.values())) != len(organized):
         raise ValueError("B 組有重複的檔案路徑")
-    return {"A-messy": messy, "B-organized": organized, "C-indexed": dict(organized)}
+    return {"A-messy": messy, "B-organized": organized, "C-indexed": dict(organized), "D-wiki": dict(organized)}
 
 
 def _cell(text: str) -> str:
@@ -104,8 +116,8 @@ def index_rows(world: dict, bodies: dict[str, str], paths: dict[str, str], model
     return cache
 
 
-def stage_problems(root: Path, maps: dict, bodies: dict[str, str]) -> list[str]:
-    """檢查 stage：位置、上層指示檔、三組內文逐字相同、設定一致、只有 C 有 CLAUDE.md 和 INDEX.md。"""
+def stage_problems(root: Path, maps: dict, bodies: dict[str, str], wiki: dict[str, str] | None = None) -> list[str]:
+    """檢查 stage：位置、上層指示檔、各組內文逐字相同、設定一致、各組只有該有的額外檔案，以及 D 組的 wiki 跟 world/wiki 相同。"""
     problems = []
     if is_under_home(root):
         problems.append(f"stage 資料夾在家目錄底下：{root}")
@@ -115,13 +127,19 @@ def stage_problems(root: Path, maps: dict, bodies: dict[str, str]) -> list[str]:
         settings = cdir / ".claude" / "settings.json"
         if not settings.exists() or json.loads(settings.read_text(encoding="utf-8")) != SETTINGS:
             problems.append(f"{cond} 的 .claude/settings.json 不符")
-        for name in ("CLAUDE.md", "INDEX.md"):
-            if (cdir / name).exists() != (cond == "C-indexed"):
+        for name in ("CLAUDE.md", "INDEX.md", "wiki"):
+            if (cdir / name).exists() != (name in EXTRAS[cond]):
                 problems.append(f"{cond} 的 {name} 狀態不符")
+        guide = cdir / "CLAUDE.md"
+        if cond in GUIDES and guide.exists() and guide.read_text(encoding="utf-8") != GUIDES[cond]:
+            problems.append(f"{cond} 的 CLAUDE.md 內容不符")
         for doc_id, rel in maps[cond].items():
             f = cdir / rel
             if not f.exists() or sha256(f.read_text(encoding="utf-8")) != sha256(bodies[doc_id]):
                 problems.append(f"{cond}/{rel} 內文與標準正文不同")
+    staged_wiki = root / "D-wiki" / "wiki"
+    if wiki is not None and staged_wiki.exists() and load_wiki(staged_wiki) != wiki:
+        problems.append("D-wiki 的 wiki/ 與 world/wiki/ 不同")
     return problems
 
 
@@ -132,6 +150,11 @@ def build(model: str = "sonnet") -> None:
     if is_under_home(root):
         raise SystemExit(f"stage 資料夾不能在家目錄底下：{root}（用 LAB_STAGE 換位置）")
     maps = layout(world)
+    if not WIKI.exists():
+        raise SystemExit("D 組需要 world/wiki/：請先用 Antigravity 建好 wiki，再執行 lab wiki-import <資料夾>")
+    wiki = load_wiki(WIKI)
+    if check_wiki(wiki, set(maps["D-wiki"].values()))[0]:
+        raise SystemExit("world/wiki/ 還有問題，請先執行 lab wiki-check")
     rows = index_rows(world, bodies, maps["C-indexed"], model)
     for cond in CONDS:
         cdir = root / cond
@@ -144,7 +167,12 @@ def build(model: str = "sonnet") -> None:
         save_json(cdir / ".claude" / "settings.json", SETTINGS)
     (root / "C-indexed" / "CLAUDE.md").write_text(CLAUDE_MD, encoding="utf-8")
     (root / "C-indexed" / "INDEX.md").write_text(render_index(world, maps["C-indexed"], rows), encoding="utf-8")
+    (root / "D-wiki" / "CLAUDE.md").write_text(CLAUDE_MD_WIKI, encoding="utf-8")
+    for rel, text in wiki.items():
+        target = root / "D-wiki" / "wiki" / rel
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(text, encoding="utf-8")
     save_json(MAPPING, maps)
-    if problems := stage_problems(root, maps, bodies):
+    if problems := stage_problems(root, maps, bodies, wiki):
         raise SystemExit("建置後檢查失敗：\n" + "\n".join(f"- {p}" for p in problems))
-    print(f"完成：{root}（{len(world['docs'])} 份文件 × 3 組）")
+    print(f"完成：{root}（{len(world['docs'])} 份文件 × {len(CONDS)} 組，wiki {len(wiki)} 個檔案）")

@@ -64,12 +64,12 @@ def _call(cmd: list[str], cwd: Path | str, timeout: int) -> tuple[str, str | Non
 
 
 def _record(wid: str, model: str, effort: str, rnd: int, cond: str, qid: str, out: str, error: str | None,
-            roots: list[str], known: set[str]) -> dict:
+            roots: list[str], known: set[str], aux: dict[str, set[str]] | None = None) -> dict:
     """存下原始紀錄，並整理成 results.jsonl 的一列。"""
     raw = RUNS / wid / f"{model}-{effort}" / f"r{rnd}" / cond / f"{qid}.jsonl"
     raw.parent.mkdir(parents=True, exist_ok=True)
     raw.write_text(out, encoding="utf-8")
-    row = summarize(parse_stream(out), roots, known)
+    row = summarize(parse_stream(out), roots, known, aux)
     if error:
         row["status"], row["error"] = "error", error
     return {"world_id": wid, "model": model, "effort": effort, "round": rnd, "cond": cond, "qid": qid,
@@ -117,7 +117,14 @@ def ask_one(rnd: int, cond: str, q: dict, paths: dict[str, str], model: str, eff
     cdir = stage_root() / cond
     out, error = _call(ask_cmd(PROMPT.format(question=q["question"]), model, effort), cdir, timeout)
     return _record(wid, model, effort, rnd, cond, q["id"], out, error,
-                   [str(cdir), str(cdir.resolve())], set(paths.values()))
+                   [str(cdir), str(cdir.resolve())], set(paths.values()), aux_files(cdir))
+
+
+def aux_files(cdir: Path) -> dict[str, set[str]]:
+    """這一組裡「不是文件」的輔助檔案：C 組的 INDEX.md、D 組的 wiki 頁面。用來記錄 index_used、wiki_used。"""
+    wiki = cdir / "wiki"
+    pages = {str(p.relative_to(cdir)) for p in wiki.rglob("*.md")} if wiki.exists() else set()
+    return {"index_used": {"INDEX.md"}, "wiki_used": pages}
 
 
 def run(rounds: int, model: str = "haiku", effort: str = "medium", workers: int = 4, timeout: int = 180) -> None:

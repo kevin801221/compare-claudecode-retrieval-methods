@@ -11,12 +11,13 @@ from lab.common import (CLOSED, COND_LABELS, CONDS, MAPPING, QTYPE_LABELS, QTYPE
 from lab.score import answer_correct, score
 
 METRICS = [("correct", "答對率"), ("hallucinated", "幻覺率"), ("retrieved", "檢索命中率"),
-           ("citation_hit", "引用命中率"), ("index_used", "讀了索引")]
+           ("citation_hit", "引用命中率"), ("index_used", "讀了索引"), ("wiki_used", "讀了 wiki")]
 EFFICIENCY = [("tool_calls", "平均工具呼叫"), ("files_read_n", "平均讀檔數"),
               ("duration_s", "平均秒數"), ("cost_usd", "平均花費 USD")]
-PAIRS = [("A-messy", "C-indexed"), ("B-organized", "C-indexed"), ("A-messy", "B-organized")]
+PAIRS = [("A-messy", "C-indexed"), ("B-organized", "C-indexed"), ("A-messy", "B-organized"),
+         ("B-organized", "D-wiki"), ("C-indexed", "D-wiki")]
 CSV_FIELDS = ["model", "effort", "round", "cond", "qid", "type", "correct", "hallucinated", "stale",
-              "retrieved", "read_gold", "citation_hit", "citation_precision", "index_used", "tool_calls",
+              "retrieved", "read_gold", "citation_hit", "citation_precision", "index_used", "wiki_used", "tool_calls",
               "files_read_n", "duration_s", "cost_usd", "found", "answer"]
 
 
@@ -149,7 +150,8 @@ def dashboard(agg: dict, need: dict | None, memorized: set[str] | None, rows: li
     for q in world["questions"]:
         results = {cond: [{"round": r["round"], "answer": _clean(r["answer"]), "found": r["found"],
                            "correct": r["correct"], "retrieved": r["retrieved"],
-                           "index_used": r.get("index_used"), "files_read": r["files_read"],
+                           "index_used": r.get("index_used"), "wiki_used": r.get("wiki_used"),
+                           "files_read": r["files_read"],
                            "files_grep": r["files_grep_content"], "tool_calls": r["tool_calls"],
                            "duration_s": round(r["duration_s"], 1)}
                           for r in sorted(rows, key=lambda r: r["round"])

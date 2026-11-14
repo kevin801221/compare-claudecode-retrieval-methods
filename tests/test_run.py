@@ -1,6 +1,15 @@
 import json
 
-from lab.run import ANSWER_SCHEMA, ask_cmd, done_keys
+from lab.run import ANSWER_SCHEMA, aux_files, ask_cmd, done_keys
+
+
+def test_aux_files_lists_wiki_pages(tmp_path):
+    (tmp_path / "wiki" / "concepts").mkdir(parents=True)
+    (tmp_path / "wiki" / "index.md").write_text("x")
+    (tmp_path / "wiki" / "concepts" / "hooks.md").write_text("x")
+    assert aux_files(tmp_path) == {"index_used": {"INDEX.md"},
+                                   "wiki_used": {"wiki/index.md", "wiki/concepts/hooks.md"}}
+    assert aux_files(tmp_path / "沒有wiki的組")["wiki_used"] == set()
 
 
 def test_ask_cmd_has_isolation_flags():

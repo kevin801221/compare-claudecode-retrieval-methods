@@ -33,6 +33,11 @@ def test_citation_precision_partial():
     assert s["citation_hit"] is True and s["citation_precision"] == 0.5
 
 
+def test_wiki_pages_in_sources_do_not_lower_precision():
+    s = score(row("4200", read=["docs/a.md"], sources=["wiki/concepts/x.md", "docs/a.md"]), q("lookup", ["4200"]), PATHS)
+    assert s["citation_precision"] == 1.0
+
+
 def test_index_in_sources_does_not_lower_precision():
     s = score(row("4200", read=["docs/a.md"], sources=["INDEX.md", "docs/a.md"]), q("lookup", ["4200"]), PATHS)
     assert s["citation_precision"] == 1.0

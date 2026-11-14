@@ -4,8 +4,16 @@ from lab.report import aggregate, memorized_qids
 def r(cond, qid, rnd, correct, qtype="lookup", **kw):
     base = {"cond": cond, "qid": qid, "round": rnd, "type": qtype, "correct": correct, "hallucinated": False,
             "retrieved": correct, "citation_hit": correct, "tool_calls": 2, "files_read_n": 1,
-            "duration_s": 3.0, "cost_usd": 0.01, "index_used": False}
+            "duration_s": 3.0, "cost_usd": 0.01, "index_used": False, "wiki_used": False}
     return base | kw
+
+
+def test_d_group_has_wiki_metric_and_pairs():
+    rows = [r("C-indexed", "Q1", 1, False), r("D-wiki", "Q1", 1, True, wiki_used=True)]
+    agg = aggregate(rows)
+    assert agg["summary"]["D-wiki"]["wiki_used"]["mean"] == 1.0
+    pair = next(p for p in agg["paired"] if (p["x"], p["y"]) == ("C-indexed", "D-wiki"))
+    assert (pair["x_only"], pair["y_only"], pair["n"]) == (0, 1, 1)
 
 
 def test_aggregate_rates_majority_and_pairs():

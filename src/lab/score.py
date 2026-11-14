@@ -27,7 +27,7 @@ def score(row: dict, q: dict, paths: dict[str, str]) -> dict:
         return gold <= files if need_all else bool(gold & files)
 
     read = set(row["files_read"])
-    sources = set(row["sources"]) - NON_DOCS
+    sources = {s for s in row["sources"] if s not in NON_DOCS and not s.startswith("wiki/")}   # wiki 頁面也不是文件
     has_new = all(norm(t) in answer for t in q["must_include"])
     stale = None
     if q["type"] == "version":

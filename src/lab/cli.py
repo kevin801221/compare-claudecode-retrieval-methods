@@ -23,7 +23,13 @@ def main(argv: list[str] | None = None) -> None:
 
     sub.add_parser("check", help="檢查 world/questions.json 的題目")
 
-    b = sub.add_parser("build", help="建立 A/B/C 三組實驗資料夾")
+    we = sub.add_parser("wiki-export", help="建立給 Antigravity 的工作資料夾（只有文件，沒有題目）")
+    we.add_argument("dst", help="工作資料夾位置（不能在 repo 裡）")
+    wi = sub.add_parser("wiki-import", help="匯入 Antigravity 產出的 wiki 到 world/wiki/（D 組）")
+    wi.add_argument("src", help="Antigravity 的工作資料夾（裡面有 wiki/）")
+    sub.add_parser("wiki-check", help="檢查 world/wiki/")
+
+    b = sub.add_parser("build", help="建立 A/B/C/D 四組實驗資料夾")
     b.add_argument("--model", default="sonnet", help="盲建索引用的模型")
 
     _model_args(sub.add_parser("closed", help="閉卷對照：不給文件，每題問一次"))
@@ -43,6 +49,16 @@ def main(argv: list[str] | None = None) -> None:
     elif args.cmd == "check":
         from lab.world import check
         check()
+    elif args.cmd in ("wiki-export", "wiki-import", "wiki-check"):
+        from pathlib import Path
+
+        from lab import wiki
+        if args.cmd == "wiki-export":
+            wiki.wiki_export(Path(args.dst))
+        elif args.cmd == "wiki-import":
+            wiki.wiki_import(Path(args.src))
+        else:
+            wiki.wiki_check()
     elif args.cmd == "build":
         from lab.build import build
         build(model=args.model)

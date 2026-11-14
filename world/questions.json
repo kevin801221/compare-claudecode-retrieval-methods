@@ -1,0 +1,158 @@
+[
+  {
+    "id": "Q01",
+    "type": "lookup",
+    "question": "TypeScript SDK 的 reloadPlugins() 如果要在同一個 session 追加本機 plugin 目錄，應使用哪個選項？這個選項最低需要哪個 Agent SDK 版本？",
+    "must_include": [
+      "addPlugins",
+      "0.3.301"
+    ],
+    "must_not_include": [],
+    "gold_docs": [
+      "agent-sdk/plugins",
+      "agent-sdk/typescript"
+    ],
+    "probe_terms": [],
+    "answerable": true
+  },
+  {
+    "id": "Q02",
+    "type": "lookup",
+    "question": "Agent SDK 連 MCP server 時，建立連線的等待上限和工具呼叫的執行時間上限，要分別用哪兩個環境變數調整？",
+    "must_include": [
+      "MCP_TIMEOUT",
+      "MCP_TOOL_TIMEOUT"
+    ],
+    "must_not_include": [],
+    "gold_docs": [
+      "agent-sdk/mcp"
+    ],
+    "probe_terms": [],
+    "answerable": true
+  },
+  {
+    "id": "Q03",
+    "type": "paraphrase",
+    "question": "代理用內建編輯工具把專案檔案改壞了，我想讓磁碟上的檔案回到某則使用者訊息送出前的狀態，保留對話繼續處理。Python SDK 要事先開啟哪個選項，還原時再呼叫哪個方法？",
+    "must_include": [
+      "enable_file_checkpointing",
+      "rewind_files"
+    ],
+    "must_not_include": [],
+    "gold_docs": [
+      "agent-sdk/file-checkpointing",
+      "agent-sdk/python"
+    ],
+    "probe_terms": [],
+    "answerable": true
+  },
+  {
+    "id": "Q04",
+    "type": "paraphrase",
+    "question": "代理工作有正常跑完，但監控收集端一直收不到執行紀錄。我想讓原本被靜默吞掉的匯出錯誤寫到標準錯誤輸出，要把哪個環境變數設為 1？",
+    "must_include": [
+      "CLAUDE_CODE_OTEL_DIAG_STDERR"
+    ],
+    "must_not_include": [],
+    "gold_docs": [
+      "agent-sdk/observability"
+    ],
+    "probe_terms": [],
+    "answerable": true
+  },
+  {
+    "id": "Q05",
+    "type": "version",
+    "question": "我們的 TypeScript 專案還在用 Claude Code SDK，package.json 的版本範圍是 ^0.0.42。照遷移指南的 package.json 範例，遷移後的套件名稱與範例版本範圍應填什麼？請只列新設定。",
+    "must_include": [
+      "@anthropic-ai/claude-agent-sdk",
+      "0.3.0"
+    ],
+    "must_not_include": [
+      "@anthropic-ai/claude-code",
+      "^0.0.42"
+    ],
+    "gold_docs": [
+      "agent-sdk/migration-guide"
+    ],
+    "probe_terms": [],
+    "answerable": true
+  },
+  {
+    "id": "Q06",
+    "type": "version",
+    "question": "TypeScript Agent SDK 升到 0.3.142 後，原本 V2 的建立與恢復 session 介面被移除了。現在多輪對話要改呼叫哪個 API、傳入哪個輸入型別？請只列替代寫法。",
+    "must_include": [
+      "query",
+      "AsyncIterable<SDKUserMessage>"
+    ],
+    "must_not_include": [
+      "unstable_v2_createSession",
+      "unstable_v2_resumeSession"
+    ],
+    "gold_docs": [
+      "agent-sdk/typescript-v2-preview",
+      "agent-sdk/typescript"
+    ],
+    "probe_terms": [],
+    "answerable": true
+  },
+  {
+    "id": "Q07",
+    "type": "multi_doc",
+    "question": "我在驗收 Python Agent SDK 的自訂會話儲存與分散式追蹤：官方用來檢驗儲存介接器是否符合行為契約的測試函式叫什麼？啟用追蹤傳遞後，代理透過 Bash 啟動的程式若自行產生 OpenTelemetry spans，這些 spans 會掛在哪個名稱的父 span 底下？",
+    "must_include": [
+      "run_session_store_conformance",
+      "claude_code.tool.execution"
+    ],
+    "must_not_include": [],
+    "gold_docs": [
+      "agent-sdk/session-storage",
+      "agent-sdk/observability"
+    ],
+    "probe_terms": [],
+    "answerable": true
+  },
+  {
+    "id": "Q08",
+    "type": "multi_doc",
+    "question": "我用 TypeScript 同時設定 tool search 與 Zod 結構化輸出：要等可延後載入的工具定義占上下文 5% 才啟用搜尋，ENABLE_TOOL_SEARCH 要填哪個值？把 Zod schema 轉成 SDK 支援的 JSON Schema 時，target 又應填哪個值？",
+    "must_include": [
+      "auto:5",
+      "draft-7"
+    ],
+    "must_not_include": [],
+    "gold_docs": [
+      "agent-sdk/tool-search",
+      "agent-sdk/structured-outputs"
+    ],
+    "probe_terms": [],
+    "answerable": true
+  },
+  {
+    "id": "Q09",
+    "type": "unanswerable",
+    "question": "我們的後端是 Ruby on Rails，想直接使用 Claude Agent SDK 的官方 Ruby 套件。RubyGems 上的套件名稱是什麼，初始化 client 的程式碼要怎麼寫？",
+    "must_include": [],
+    "must_not_include": [],
+    "gold_docs": [],
+    "probe_terms": [
+      "Agent SDK",
+      "Ruby"
+    ],
+    "answerable": false
+  },
+  {
+    "id": "Q10",
+    "type": "unanswerable",
+    "question": "容量規劃想引用官方 benchmark：Claude Agent SDK 在單機同時執行 100 個 session 時，P95 首次回應延遲是多少毫秒？測試使用的 CPU 與記憶體規格是什麼？",
+    "must_include": [],
+    "must_not_include": [],
+    "gold_docs": [],
+    "probe_terms": [
+      "Agent SDK",
+      "P95"
+    ],
+    "answerable": false
+  }
+]

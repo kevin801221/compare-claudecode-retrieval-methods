@@ -1,0 +1,324 @@
+[
+  {
+    "id": "T01",
+    "type": "aggregate",
+    "question": "以這批收錄的 LangChain 文件為範圍，請把 `langchain/errors/` 路徑下每篇專頁所對應的錯誤代碼全部列出。",
+    "must_include": [
+      "INVALID_PROMPT_INPUT",
+      "INVALID_TOOL_RESULTS",
+      "MESSAGE_COERCION_FAILURE",
+      "MODEL_AUTHENTICATION",
+      "MODEL_NOT_FOUND",
+      "MODEL_RATE_LIMIT",
+      "OUTPUT_PARSING_FAILURE"
+    ],
+    "must_not_include": [],
+    "gold_docs": [
+      "langchain/errors/INVALID_PROMPT_INPUT",
+      "langchain/errors/INVALID_TOOL_RESULTS",
+      "langchain/errors/MESSAGE_COERCION_FAILURE",
+      "langchain/errors/MODEL_AUTHENTICATION",
+      "langchain/errors/MODEL_NOT_FOUND",
+      "langchain/errors/MODEL_RATE_LIMIT",
+      "langchain/errors/OUTPUT_PARSING_FAILURE"
+    ],
+    "probe_terms": [],
+    "answerable": true
+  },
+  {
+    "id": "T02",
+    "type": "aggregate",
+    "question": "以這批收錄的 LangGraph 文件為範圍，請把 `langgraph/errors/` 路徑下每篇專頁所對應的錯誤代碼全部列出。",
+    "must_include": [
+      "GRAPH_RECURSION_LIMIT",
+      "INVALID_CHAT_HISTORY",
+      "INVALID_CONCURRENT_GRAPH_UPDATE",
+      "INVALID_GRAPH_NODE_RETURN_VALUE",
+      "MISSING_CHECKPOINTER",
+      "MULTIPLE_SUBGRAPHS"
+    ],
+    "must_not_include": [],
+    "gold_docs": [
+      "langgraph/errors/GRAPH_RECURSION_LIMIT",
+      "langgraph/errors/INVALID_CHAT_HISTORY",
+      "langgraph/errors/INVALID_CONCURRENT_GRAPH_UPDATE",
+      "langgraph/errors/INVALID_GRAPH_NODE_RETURN_VALUE",
+      "langgraph/errors/MISSING_CHECKPOINTER",
+      "langgraph/errors/MULTIPLE_SUBGRAPHS"
+    ],
+    "probe_terms": [],
+    "answerable": true
+  },
+  {
+    "id": "T03",
+    "type": "aggregate",
+    "question": "我在整理 Claude Agent SDK 的子代理部署設定，請把以下操作對應的環境變數名稱全部列出：限制巢狀深度與同時執行數、停用背景工作、決定背景工作是否讓 session 維持執行狀態，以及單獨指定主對話以外工作使用的提示詞快取期限。只列環境變數，不列 SDK 選項或 settings 欄位。",
+    "must_include": [
+      "CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH",
+      "CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS",
+      "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS",
+      "CLAUDE_CODE_BG_TASKS_REPORT_RUNNING",
+      "CLAUDE_CODE_SUBAGENT_PROMPT_CACHE_TTL"
+    ],
+    "must_not_include": [],
+    "gold_docs": [
+      "agent-sdk/subagents",
+      "agent-sdk/typescript",
+      "agent-sdk/cost-tracking"
+    ],
+    "probe_terms": [],
+    "answerable": true
+  },
+  {
+    "id": "T04",
+    "type": "aggregate",
+    "question": "以收錄的 LangChain Python 測試指南為準，請把以下用途的名稱全部列出：接受訊息迭代器的內建假聊天模型、將 HTTP 錄播整合到 pytest 的外掛，以及同步建立參考軌跡比對器與模型裁判的函式。只列對應類別、外掛套件與建立函式，不含範例自訂模型、底層錄播套件與非同步版本。",
+    "must_include": [
+      "GenericFakeChatModel",
+      "pytest-recording",
+      "create_trajectory_match_evaluator",
+      "create_trajectory_llm_as_judge"
+    ],
+    "must_not_include": [],
+    "gold_docs": [
+      "langchain/test/unit-testing",
+      "langchain/test/integration-testing",
+      "langchain/test/evals"
+    ],
+    "probe_terms": [],
+    "answerable": true
+  },
+  {
+    "id": "T05",
+    "type": "aggregate",
+    "question": "Deep Agents Code 在無互動執行時，哪些 CLI 旗標能直接核准來自專案的可執行設定或程式來源？請把收錄文件中的這類專案信任旗標全部列出，只包含授權限於本次執行的旗標，不列環境變數或會持久保存的設定。",
+    "must_include": [
+      "--trust-project-mcp",
+      "--trust-project-extensions",
+      "--trust-project-hooks"
+    ],
+    "must_not_include": [],
+    "gold_docs": [
+      "deepagents/code/mcp-tools",
+      "deepagents/code/extensions",
+      "deepagents/code/hooks"
+    ],
+    "probe_terms": [],
+    "answerable": true
+  },
+  {
+    "id": "T06",
+    "type": "aggregate",
+    "question": "我在整合 LangChain 的 React 介面，請把以下用途在前端整合指南與範例中採用的 hook 名稱全部列出：將外部訊息狀態橋接成聊天 runtime、把允許的 UI schema 傳給代理、依元件註冊表解析串流中的 JSON，以及等 OpenUI 的完整語句到齊才更新畫面。只列各用途直接使用的 hook，不列一般 React hook、串流連線 hook 或範例外層封裝。",
+    "must_include": [
+      "useExternalStoreRuntime",
+      "useAgentContext",
+      "useJsonParser",
+      "useStableText"
+    ],
+    "must_not_include": [],
+    "gold_docs": [
+      "langchain/frontend/integrations/assistant-ui",
+      "langchain/frontend/integrations/copilotkit",
+      "langchain/frontend/integrations/openui"
+    ],
+    "probe_terms": [],
+    "answerable": true
+  },
+  {
+    "id": "T07",
+    "type": "confusable",
+    "question": "在 Python 的 Claude Agent SDK 中，要用 tool() 裝飾器明確指定工具輸入的驗證結構，對應的參數名稱是什麼？裝飾完會得到哪個工具物件類別？請只列這個 SDK 的名稱。",
+    "must_include": [
+      "input_schema",
+      "SdkMcpTool"
+    ],
+    "must_not_include": [
+      "args_schema"
+    ],
+    "gold_docs": [
+      "agent-sdk/python"
+    ],
+    "probe_terms": [],
+    "answerable": true
+  },
+  {
+    "id": "T08",
+    "type": "confusable",
+    "question": "Python Claude Agent SDK 的工具審核回呼要核准操作，並用清理過的參數取代模型原始輸入，應回傳哪個類別，並把替換內容放在哪個建構參數？請只列 Python 的寫法。",
+    "must_include": [
+      "PermissionResultAllow",
+      "updated_input"
+    ],
+    "must_not_include": [
+      "updatedInput"
+    ],
+    "gold_docs": [
+      "agent-sdk/python",
+      "agent-sdk/user-input"
+    ],
+    "probe_terms": [],
+    "answerable": true
+  },
+  {
+    "id": "T09",
+    "type": "confusable",
+    "question": "我用 TypeScript Deep Agents，想讓子代理的工具送出自訂進度事件。依串流文件，工具裡應透過設定物件的哪個屬性取得 writer？請只列 TypeScript 的存取寫法。",
+    "must_include": [
+      "config.writer"
+    ],
+    "must_not_include": [
+      "get_stream_writer"
+    ],
+    "gold_docs": [
+      "deepagents/streaming",
+      "langchain/streaming",
+      "langchain/tools",
+      "langgraph/functional-api",
+      "langgraph/streaming"
+    ],
+    "probe_terms": [],
+    "answerable": true
+  },
+  {
+    "id": "T10",
+    "type": "confusable",
+    "question": "LangChain 的 TypeScript 代理要寫可重用的自訂中介層，並包住模型呼叫做重試，應呼叫哪個工廠函式建立中介層、在設定物件上實作哪個包覆 hook？請只列 TypeScript 的 API 名稱。",
+    "must_include": [
+      "createMiddleware",
+      "wrapModelCall"
+    ],
+    "must_not_include": [
+      "AgentMiddleware",
+      "wrap_model_call"
+    ],
+    "gold_docs": [
+      "langchain/context-engineering",
+      "langchain/frontend/integrations/copilotkit",
+      "langchain/middleware/built-in",
+      "langchain/middleware/custom",
+      "langchain/models",
+      "langchain/multi-agent/handoffs",
+      "langchain/multi-agent/handoffs-customer-support",
+      "langchain/multi-agent/skills-sql-assistant",
+      "langchain/tools"
+    ],
+    "probe_terms": [],
+    "answerable": true
+  },
+  {
+    "id": "T11",
+    "type": "confusable",
+    "question": "Python LangGraph 要讓非同步 graph 把 checkpoint 寫入 PostgreSQL，文件範例中的非同步 saver 應從哪個完整模組路徑匯入？請只列 Python 的匯入來源。",
+    "must_include": [
+      "langgraph.checkpoint.postgres.aio"
+    ],
+    "must_not_include": [
+      "@langchain/langgraph-checkpoint-postgres"
+    ],
+    "gold_docs": [
+      "langgraph/add-memory"
+    ],
+    "probe_terms": [],
+    "answerable": true
+  },
+  {
+    "id": "T12",
+    "type": "confusable",
+    "question": "在 TypeScript 的 Deep Agents 專案接上 MCP 工具時，Tools 文件指定要另外安裝哪個 npm 套件？請只列 TypeScript 的套件名稱。",
+    "must_include": [
+      "@langchain/mcp-adapters"
+    ],
+    "must_not_include": [
+      "langchain[mcp]"
+    ],
+    "gold_docs": [
+      "deepagents/browser-use",
+      "deepagents/customization",
+      "deepagents/tools",
+      "langchain/mcp/auth",
+      "langchain/mcp/index",
+      "langchain/tools"
+    ],
+    "probe_terms": [],
+    "answerable": true
+  },
+  {
+    "id": "T13",
+    "type": "near_miss",
+    "question": "Claude Agent SDK 把會話紀錄鏡像到自訂 session store，append() 失敗後會短暫退避再重試。第一次退避預設要等幾毫秒，後續退避時間的倍率是多少？",
+    "must_include": [],
+    "must_not_include": [],
+    "gold_docs": [],
+    "probe_terms": [
+      "session",
+      "initial backoff"
+    ],
+    "answerable": false
+  },
+  {
+    "id": "T14",
+    "type": "near_miss",
+    "question": "Claude Agent SDK 的結構化輸出沒有通過 JSON Schema 驗證時，預設最多允許幾次修正重試，才會回報 error_max_structured_output_retries？",
+    "must_include": [],
+    "must_not_include": [],
+    "gold_docs": [],
+    "probe_terms": [
+      "structured_output",
+      "retry count"
+    ],
+    "answerable": false
+  },
+  {
+    "id": "T15",
+    "type": "near_miss",
+    "question": "Deep Agents 的非同步 subagent 完成後，Agent Server 呼叫我設定的 webhook 卻收到 HTTP 500；預設會重送幾次，每次重送的等待時間是多少秒？",
+    "must_include": [],
+    "must_not_include": [],
+    "gold_docs": [],
+    "probe_terms": [
+      "subagent",
+      "webhook retries"
+    ],
+    "answerable": false
+  },
+  {
+    "id": "T16",
+    "type": "near_miss",
+    "question": "Deep Agents Code 將事件 JSON 透過 stdin 傳給 command hook 時，單次輸入 payload 的預設大小上限是多少 bytes？",
+    "must_include": [],
+    "must_not_include": [],
+    "gold_docs": [],
+    "probe_terms": [
+      "hooks",
+      "stdin limit"
+    ],
+    "answerable": false
+  },
+  {
+    "id": "T17",
+    "type": "near_miss",
+    "question": "LangChain 的 TypeScript MCPAdapter 內建工具清單記憶體快取，預設最多能保留幾筆清單？容量滿了之後，預設採用哪種淘汰策略？",
+    "must_include": [],
+    "must_not_include": [],
+    "gold_docs": [],
+    "probe_terms": [
+      "MCP",
+      "eviction policy"
+    ],
+    "answerable": false
+  },
+  {
+    "id": "T18",
+    "type": "near_miss",
+    "question": "LangGraph 前端透過 useChannel 保留原始事件時，bufferSize 維持預設的 \"default\"，實際最多會保留多少筆事件？",
+    "must_include": [],
+    "must_not_include": [],
+    "gold_docs": [],
+    "probe_terms": [
+      "stream",
+      "default buffer size"
+    ],
+    "answerable": false
+  }
+]

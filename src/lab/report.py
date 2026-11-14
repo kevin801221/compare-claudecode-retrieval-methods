@@ -69,7 +69,8 @@ def aggregate(rows: list[dict]) -> dict:
     props = {qid: {c: mean(map(float, v)) for c, v in conds.items()} for qid, conds in outcomes.items()}
     majority = {qid: {c: None if p == 0.5 else p > 0.5 for c, p in conds.items()}
                 for qid, conds in props.items()}
-    by_type = {c: {t: _avg([props[q][c] for q in props if qtype[q] == t and c in props[q]]) for t in QTYPES}
+    types = [t for t in QTYPES if t in qtype.values()]   # 只列題庫裡有的題型
+    by_type = {c: {t: _avg([props[q][c] for q in props if qtype[q] == t and c in props[q]]) for t in types}
                for c in CONDS}
     paired = []
     for x, y in PAIRS:
@@ -77,7 +78,7 @@ def aggregate(rows: list[dict]) -> dict:
         paired.append({"x": x, "y": y, "n": len(both),
                        "x_only": sum(1 for q in both if majority[q][x] and not majority[q][y]),
                        "y_only": sum(1 for q in both if majority[q][y] and not majority[q][x])})
-    return {"rounds": rounds, "n_questions": len(props), "summary": summary, "by_type": by_type,
+    return {"rounds": rounds, "n_questions": len(props), "summary": summary, "types": types, "by_type": by_type,
             "per_question": props, "majority": majority, "paired": paired}
 
 
@@ -117,10 +118,10 @@ def render_markdown(agg: dict, need: dict | None, memo: dict | None, model: str,
         lines += ["", f"## 總表：需要查文件的題目（排除憑記憶答對的題目，n = {need['n_questions']}）", "",
                   *_summary_table(need, errors)]
     lines += ["", "## 各題型答對率", "",
-              "| 組別 | " + " | ".join(QTYPE_LABELS[t] for t in QTYPES) + " |",
-              "|" + "---|" * (len(QTYPES) + 1)]
+              "| 組別 | " + " | ".join(QTYPE_LABELS[t] for t in agg["types"]) + " |",
+              "|" + "---|" * (len(agg["types"]) + 1)]
     for cond in CONDS:
-        cells = [_pct(agg["by_type"][cond][t]) for t in QTYPES]
+        cells = [_pct(agg["by_type"][cond][t]) for t in agg["types"]]
         lines.append(f"| {COND_LABELS[cond]} | " + " | ".join(cells) + " |")
     lines += ["", "## 成對比較（每題取多輪多數決）", "",
               "| 比較 | 只有前者答對 | 只有後者答對 | 可比較題數 |", "|---|---|---|---|"]
@@ -170,7 +171,7 @@ def dashboard(agg: dict, need: dict | None, memorized: set[str] | None, rows: li
             "n_questions": agg["n_questions"], "rounds": agg["rounds"],
             "memorized_count": None if memorized is None else len(memorized),
             "conds": [{"id": c, "label": COND_LABELS[c]} for c in CONDS],
-            "qtypes": [{"id": t, "label": QTYPE_LABELS[t]} for t in QTYPES],
+            "qtypes": [{"id": t, "label": QTYPE_LABELS[t]} for t in agg["types"]],
             "summary": agg["summary"], "summary_need_docs": need["summary"] if need else None,
             "n_need_docs": need["n_questions"] if need else None,
             "by_type": agg["by_type"], "paired": agg["paired"], "questions": questions}

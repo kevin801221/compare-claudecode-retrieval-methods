@@ -32,6 +32,7 @@ def test_aggregate_rates_majority_and_pairs():
     pair = next(p for p in agg["paired"] if (p["x"], p["y"]) == ("A-messy", "C-indexed"))
     assert (pair["x_only"], pair["y_only"], pair["n"]) == (1, 1, 2)   # Q2 只有 A 對，Q1 只有 C 對
     assert agg["by_type"]["A-messy"]["unanswerable"] == 1.0
+    assert agg["types"] == ["lookup", "unanswerable"] == list(agg["by_type"]["A-messy"])   # 只列題庫裡有的題型
     assert agg["summary"]["A-messy"]["retrieved"]["mean"] is not None
 
 

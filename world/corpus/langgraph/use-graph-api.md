@@ -1,0 +1,146 @@
+---
+title: Build checklist for the Graph API
+sidebarTitle: Build checklist
+description: Decide state, control flow, Send, Command, and node options as you build with the Graph API.
+---
+
+import LanggraphUseGraphApiStatePy from '/snippets/code-samples/langgraph-use-graph-api-state-py.mdx';
+import LanggraphUseGraphApiStateJs from '/snippets/code-samples/langgraph-use-graph-api-state-js.mdx';
+import LanggraphUseGraphApiControlFlowPy from '/snippets/code-samples/langgraph-use-graph-api-control-flow-py.mdx';
+import LanggraphUseGraphApiControlFlowJs from '/snippets/code-samples/langgraph-use-graph-api-control-flow-js.mdx';
+import LanggraphUseGraphApiSendCommandPy from '/snippets/code-samples/langgraph-use-graph-api-send-command-py.mdx';
+import LanggraphUseGraphApiSendCommandJs from '/snippets/code-samples/langgraph-use-graph-api-send-command-js.mdx';
+import LanggraphUseGraphApiNodeConfigPy from '/snippets/code-samples/langgraph-use-graph-api-node-config-py.mdx';
+import LanggraphUseGraphApiNodeConfigJs from '/snippets/code-samples/langgraph-use-graph-api-node-config-js.mdx';
+import LanggraphUseGraphApiVisualizePy from '/snippets/code-samples/langgraph-use-graph-api-visualize-py.mdx';
+import LanggraphUseGraphApiVisualizeJs from '/snippets/code-samples/langgraph-use-graph-api-visualize-js.mdx';
+
+This guide walks through the decisions you make when building a graph. For install and an end-to-end agent example, see the [LangGraph quickstart](/oss/langgraph/quickstart). For a design walkthrough, see [Thinking in the Graph API](/oss/langgraph/thinking-in-graph-api). For concepts, see the [Graph API overview](/oss/langgraph/graph-api).
+
+## Build your graph
+
+Work through these decisions in order. Each step includes a short example and links to the how-to for full recipes.
+
+<Steps>
+<Step title="Define shared state">
+Decide what data nodes share and how updates merge.
+
+- Pick a schema (`TypedDict`, dataclass, or `StateSchema` in TypeScript).
+- Add a [reducer](/oss/langgraph/graph-api#reducers) for any key that multiple nodes write (for example, appending messages).
+- Use private or input/output schemas when the graph should hide internal channels from callers.
+
+:::python
+
+<LanggraphUseGraphApiStatePy />
+
+Here `foo` overwrites. `bar` appends with `operator.add`.
+:::
+
+:::js
+
+<LanggraphUseGraphApiStateJs />
+
+Here `foo` overwrites. `bar` concatenates.
+:::
+
+For schemas, reducers, messages, and private state, see [Define and update state](/oss/langgraph/graph-api-state).
+</Step>
+
+<Step title="Choose control flow">
+Decide how work moves between nodes.
+
+- **Sequence**: Fixed steps in order.
+- **Branch**: Conditional edges pick the next node from state.
+- **Parallel**: Fan-out to several nodes, then fan-in (often with reducers).
+- **Loop**: Cycle until a termination condition, or cap runs with a [recursion limit](/oss/langgraph/graph-api#recursion-limit).
+
+This sequence checks whether a number is even, then formats a message:
+
+:::python
+
+<LanggraphUseGraphApiControlFlowPy />
+
+:::
+
+:::js
+
+<LanggraphUseGraphApiControlFlowJs />
+
+:::
+
+For branches, parallel paths, and loops, see [Build sequences, branches, and loops](/oss/langgraph/graph-api-control-flow).
+</Step>
+
+<Step title="Decide if you need Send or Command">
+Most graphs only need nodes, edges, and conditional edges. Keep routing in edges unless you hit one of the cases below. For patterns and examples, see [Use Send and Command](/oss/langgraph/graph-api-send-command).
+
+Reach for the extras when the default model is not enough:
+
+- Use @[`Send`] when you must run the same node once per item, each with its own input, and the item count is only known at runtime (map-reduce / orchestrator-worker).
+- Use @[`Command`] when one step must both update state and choose the next node, resume after an [interrupt](/oss/langgraph/interrupts), or update state from a tool.
+
+:::python
+
+<LanggraphUseGraphApiSendCommandPy />
+
+:::
+
+:::js
+
+<LanggraphUseGraphApiSendCommandJs />
+
+:::
+</Step>
+
+<Step title="Configure nodes as needed">
+Add runtime options when reliability or cost matters:
+
+- Retries and timeouts for flaky or slow steps
+- Error handlers and graph-wide node defaults
+- Caching for expensive repeated work
+- Runtime context or config for dependencies that do not belong in state
+
+:::python
+
+<LanggraphUseGraphApiNodeConfigPy />
+
+:::
+
+:::js
+
+<LanggraphUseGraphApiNodeConfigJs />
+
+:::
+
+See [Configure nodes](/oss/langgraph/graph-api-nodes).
+</Step>
+
+<Step title="Visualize the graph">
+Render a Mermaid or PNG diagram to review topology and debug routing.
+
+:::python
+
+<LanggraphUseGraphApiVisualizePy />
+
+:::
+
+:::js
+
+<LanggraphUseGraphApiVisualizeJs />
+
+:::
+
+See [Visualize your graph](/oss/langgraph/graph-api-visualize).
+</Step>
+</Steps>
+
+## Next steps
+
+- [Thinking in the Graph API](/oss/langgraph/thinking-in-graph-api): Design walkthrough with the email agent
+- [Graph API overview](/oss/langgraph/graph-api): Concepts for state, nodes, edges, `Send`, and `Command`
+- [Define and update state](/oss/langgraph/graph-api-state)
+- [Build sequences, branches, and loops](/oss/langgraph/graph-api-control-flow)
+- [Use Send and Command](/oss/langgraph/graph-api-send-command)
+- [Configure nodes](/oss/langgraph/graph-api-nodes)
+- [Visualize your graph](/oss/langgraph/graph-api-visualize)
+- [LangGraph quickstart](/oss/langgraph/quickstart): End-to-end calculator agent

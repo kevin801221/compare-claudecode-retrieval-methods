@@ -1,0 +1,599 @@
+{
+  "agent-sdk/typescript-v2-preview": {
+    "sha": "20f5ad0203b462a43bc0f471b8d176b3503079f47c3e1e7877c29bbc639d7c21",
+    "summary": "已移除的 TypeScript SDK V2 工作階段 API 參考，說明 send/stream 多輪對話模式與改用 query() 的遷移方式。",
+    "keywords": [
+      "V2 session API",
+      "unstable_v2_createSession",
+      "unstable_v2_resumeSession",
+      "unstable_v2_prompt",
+      "SDKSession",
+      "session.send",
+      "session.stream",
+      "query()",
+      "移除",
+      "遷移",
+      "多輪對話",
+      "工作階段恢復"
+    ]
+  },
+  "agent-sdk/user-input": {
+    "sha": "009c4ee57d46774c75e9a8b25a30ff172867b0052a60d3fbdfed6cda60f1ce98",
+    "summary": "說明如何透過 canUseTool 回呼，把 Claude 的工具授權請求與澄清問題呈現給使用者並回傳決定。",
+    "keywords": [
+      "canUseTool",
+      "AskUserQuestion",
+      "tool approval",
+      "工具授權",
+      "使用者輸入",
+      "clarifying questions",
+      "澄清問題",
+      "PreToolUse hook",
+      "defer",
+      "streaming input",
+      "custom tools",
+      "自由文字輸入"
+    ]
+  },
+  "agent-sdk/agent-loop": {
+    "sha": "6a6cef346a5e9bcd5f2cebed582b732e0abe9a5ad87465a4d475b04224e4fe4a",
+    "summary": "說明 Agent SDK 代理迴圈的運作：訊息生命週期、工具執行、上下文視窗、壓縮與工作階段。",
+    "keywords": [
+      "agent loop",
+      "代理迴圈",
+      "message lifecycle",
+      "訊息生命週期",
+      "tool execution",
+      "工具執行",
+      "context window",
+      "上下文視窗",
+      "automatic compaction",
+      "自動壓縮",
+      "max turns",
+      "permission mode"
+    ]
+  },
+  "agent-sdk/claude-code-features": {
+    "sha": "d946e4b687423f9f27d644ab1c4458abaa6c4016d1af254345b6bcebe1df3b04",
+    "summary": "說明如何在 SDK 中載入 CLAUDE.md、技能、hooks 等 Claude Code 檔案系統功能。",
+    "keywords": [
+      "settingSources",
+      "setting_sources",
+      "設定來源",
+      "CLAUDE.md",
+      "專案指令",
+      "skills",
+      "技能",
+      "hooks",
+      "PreToolUse",
+      "filesystem settings",
+      "檔案系統設定",
+      "rules"
+    ]
+  },
+  "agent-sdk/configuration": {
+    "sha": "ffac6b14efae1c9f11e3789ba74faf969f09bd12b5ec5d18a40d543e0dbf582b",
+    "summary": "說明如何組合 options 物件，設定模型、環境變數、工作目錄、回合與花費上限。",
+    "keywords": [
+      "Options",
+      "ClaudeAgentOptions",
+      "options 物件",
+      "query()",
+      "model",
+      "模型",
+      "allowedTools",
+      "maxTurns",
+      "cwd",
+      "工作目錄",
+      "environment variables",
+      "環境變數"
+    ]
+  },
+  "agent-sdk/cost-tracking": {
+    "sha": "a8fa16e1983cda2df4dd94f7ed159f6c93696455fe19371a894514014a662da1",
+    "summary": "說明如何追蹤 token 用量、估算費用，以及設定提示快取。",
+    "keywords": [
+      "total_cost_usd",
+      "costUSD",
+      "cost tracking",
+      "費用追蹤",
+      "token usage",
+      "token 用量",
+      "prompt caching",
+      "提示快取",
+      "cache TTL",
+      "per-model usage",
+      "modelPricing",
+      "成本估算"
+    ]
+  },
+  "agent-sdk/custom-tools": {
+    "sha": "53413c756c9fd145b680c347f9ef2e4d345d48fd5e2a38e138982dda47f27b99",
+    "summary": "說明如何用行程內 MCP 伺服器定義自訂工具，讓 Claude 呼叫你的函式與 API。",
+    "keywords": [
+      "custom tools",
+      "自訂工具",
+      "tool()",
+      "@tool",
+      "createSdkMcpServer",
+      "create_sdk_mcp_server",
+      "in-process MCP server",
+      "mcpServers",
+      "allowedTools",
+      "tool annotations",
+      "權限政策",
+      "permission_policy"
+    ]
+  },
+  "agent-sdk/examples": {
+    "sha": "a02539aae77d24cf5943b5c414892845973e98a725c785b0195425384b2941aa",
+    "summary": "整理可執行的 Agent SDK 範例專案與 Claude Cookbook 教學食譜的入口。",
+    "keywords": [
+      "examples",
+      "範例",
+      "claude-agent-sdk-demos",
+      "Hello World",
+      "quickstart",
+      "快速入門",
+      "Claude Cookbook",
+      "demo application",
+      "示範應用",
+      "commerce agents",
+      "Python recipe",
+      "參考實作"
+    ]
+  },
+  "agent-sdk/file-checkpointing": {
+    "sha": "e550f14a54bc1c778991f20b519f1ac82b956dd613948ddeabd7f3aabf276cef",
+    "summary": "說明如何追蹤代理工作階段中的檔案變更，並將檔案還原到先前狀態。",
+    "keywords": [
+      "file checkpointing",
+      "檔案檢查點",
+      "rewindFiles()",
+      "rewind",
+      "還原",
+      "倒回",
+      "Write",
+      "Edit",
+      "NotebookEdit",
+      "checkpoint",
+      "restore point",
+      "user message UUID"
+    ]
+  },
+  "agent-sdk/hooks": {
+    "sha": "c295029c44d864e2d6afe7c5f662348128970f971b46679d423edc1eefaa45e4",
+    "summary": "說明如何用 hooks 回呼在代理執行的關鍵節點攔截、阻擋或修改行為。",
+    "keywords": [
+      "hooks",
+      "掛鉤",
+      "鉤子",
+      "PreToolUse",
+      "PostToolUse",
+      "matcher",
+      "callback",
+      "回呼",
+      "options.hooks",
+      "block tool",
+      "阻擋工具",
+      "subagent",
+      "onFailure"
+    ]
+  },
+  "agent-sdk/hosting": {
+    "sha": "7b76f0c7f06cd498f422f2938920ccfe2cc06f26fe966cdfb7909acf456aad9d",
+    "summary": "說明在正式環境部署 Agent SDK：子行程架構、工作階段持久化、擴展、可觀測性與多租戶隔離。",
+    "keywords": [
+      "hosting",
+      "部署",
+      "託管",
+      "subprocess",
+      "子行程",
+      "claude CLI",
+      "session persistence",
+      "工作階段持久化",
+      "Docker",
+      "Kubernetes",
+      "sandbox",
+      "multi-tenant isolation"
+    ]
+  },
+  "agent-sdk/mcp": {
+    "sha": "29c2481afcf01f929f7954a9c9029cf31c329d05c62145208cdbd16145c0898d",
+    "summary": "說明如何設定 MCP 伺服器以串接外部工具，涵蓋傳輸類型、工具搜尋、驗證與錯誤處理。",
+    "keywords": [
+      "MCP",
+      "Model Context Protocol",
+      "mcpServers",
+      "MCP 伺服器",
+      "stdio",
+      "HTTP/SSE",
+      "SDK MCP servers",
+      "tool search",
+      "工具搜尋",
+      "OAuth2",
+      "allowedTools",
+      "外部工具"
+    ]
+  },
+  "agent-sdk/sessions": {
+    "sha": "04618a50ba45a22459d13a5ff17e46f71045e5b8b0ef38da3884bf17154879d4",
+    "summary": "說明 SDK 如何保存對話歷史，以及何時使用 continue、resume、fork 回到先前的執行。",
+    "keywords": [
+      "session",
+      "工作階段",
+      "session ID",
+      "continue",
+      "resume",
+      "恢復對話",
+      "fork",
+      "分支",
+      "ClaudeSDKClient",
+      "query()",
+      "跨主機",
+      "對話歷史"
+    ]
+  },
+  "agent-sdk/skills": {
+    "sha": "7c9fea737b63263a2a27d1bac6ec925f796ee4e0c0d8f5e10bebb7359a0d7226",
+    "summary": "說明如何在 Agent SDK 中載入、限制、建立與呼叫 Skills（SKILL.md）及斜線指令。",
+    "keywords": [
+      "Skills",
+      "技能",
+      "SKILL.md",
+      "settingSources",
+      "setting_sources",
+      "slash command",
+      "斜線指令",
+      "/compact",
+      "/clear",
+      "allowed tools",
+      "預先核准工具",
+      "Invalid skill name"
+    ]
+  },
+  "agent-sdk/streaming-output": {
+    "sha": "6d7641d529cffd8f7421463ab8f16ece4a2120e14904ae2e8f0bcca8a6af6b77",
+    "summary": "說明如何開啟部分訊息串流，即時接收文字與工具呼叫的增量輸出。",
+    "keywords": [
+      "streaming output",
+      "串流輸出",
+      "include_partial_messages",
+      "includePartialMessages",
+      "StreamEvent",
+      "content_block_delta",
+      "text_delta",
+      "AssistantMessage",
+      "ResultMessage",
+      "即時回應",
+      "串流 UI",
+      "逐字輸出"
+    ]
+  },
+  "agent-sdk/streaming-vs-single-mode": {
+    "sha": "75b9c415ac31843dcbfb127f41cf823542708f5d578e658e2cf2b3813d57d0fc",
+    "summary": "比較串流輸入模式與單一訊息輸入模式，說明各自優點、限制與使用時機。",
+    "keywords": [
+      "Streaming Input",
+      "串流輸入",
+      "Single Message Input",
+      "單一訊息",
+      "輸入模式",
+      "image upload",
+      "圖片上傳",
+      "queued messages",
+      "訊息佇列",
+      "interrupt",
+      "中斷",
+      "MCP"
+    ]
+  },
+  "agent-sdk/structured-outputs": {
+    "sha": "c5b004fd174e392755fe47e790b2e4a9921b9c5476e971b12ccc5ecc8c7a002b",
+    "summary": "說明如何用 JSON Schema、Zod、Pydantic 讓代理回傳經驗證的結構化 JSON。",
+    "keywords": [
+      "structured outputs",
+      "結構化輸出",
+      "JSON Schema",
+      "Zod",
+      "Pydantic",
+      "StructuredOutput",
+      "output format",
+      "輸出格式",
+      "schema validation",
+      "驗證",
+      "型別安全",
+      "error handling"
+    ]
+  },
+  "agent-sdk/subagents": {
+    "sha": "30ec1d11f9ae472272891707bac5a917ea4cd05519bd6f9843239ec42bdf534e",
+    "summary": "說明如何定義與呼叫子代理，以隔離上下文、平行執行並套用專門指令。",
+    "keywords": [
+      "subagents",
+      "子代理",
+      "AgentDefinition",
+      "agents",
+      "query()",
+      "context isolation",
+      "上下文隔離",
+      "Agent tool",
+      "general-purpose",
+      ".claude/agents",
+      "平行執行",
+      "tool restrictions"
+    ]
+  },
+  "agent-sdk/todo-tracking": {
+    "sha": "313a71d1840abb61c1dc3229c6de2ffb3b6734316c46a4607eb3383deebeb586",
+    "summary": "說明如何在 Agent SDK 會話中追蹤待辦事項，並從工具呼叫呈現 Claude 的進度。",
+    "keywords": [
+      "todo tracking",
+      "待辦事項",
+      "TodoWrite",
+      "TaskCreate",
+      "TaskGet",
+      "TaskUpdate",
+      "TaskList",
+      "CLAUDE_CODE_ENABLE_TASKS",
+      "任務追蹤",
+      "進度顯示",
+      "model availability",
+      "todo lifecycle"
+    ]
+  },
+  "agent-sdk/tool-search": {
+    "sha": "93e224c199acbcb6dd0747068bc42276aefe6e8db1243b8d94a389d76feb55ed",
+    "summary": "說明如何用 tool search 依需求動態搜尋並載入大量工具，節省上下文。",
+    "keywords": [
+      "tool search",
+      "工具搜尋",
+      "動態載入",
+      "context window",
+      "上下文視窗",
+      "tool catalog",
+      "工具目錄",
+      "tool selection accuracy",
+      "工具選擇準確度",
+      "大量工具",
+      "on-demand",
+      "token"
+    ]
+  },
+  "agent-sdk/troubleshooting": {
+    "sha": "bfdbeadd46078725f2298d3d241e2620062a4bb2bf5915359850e91cfd4ce3fd",
+    "summary": "針對 Agent SDK 的 CLI 啟動、程序結束與結構化輸出錯誤提供排解指引。",
+    "keywords": [
+      "troubleshooting",
+      "疑難排解",
+      "CLINotFoundError",
+      "CLIConnectionError",
+      "ProcessError",
+      "exit code",
+      "結束代碼",
+      "structured_output",
+      "Claude Code CLI",
+      "啟動失敗",
+      "錯誤訊息",
+      "report issue"
+    ]
+  },
+  "agent-sdk/typescript": {
+    "sha": "6149d6adab94bb88de20581b816a779440b1541550a63cc3eedac504aedfb837",
+    "summary": "TypeScript Agent SDK 的完整 API 參考，涵蓋安裝、函式與型別。",
+    "keywords": [
+      "TypeScript",
+      "API reference",
+      "API 參考",
+      "query()",
+      "tool()",
+      "createSdkMcpServer()",
+      "listSessions()",
+      "forkSession()",
+      "Options",
+      "Query",
+      "WarmQuery",
+      "prewarm()"
+    ]
+  },
+  "agent-sdk/migration-guide": {
+    "sha": "9dbe97af0649e80b010e8ad2212aa631332a9f9ac920b616ed532df5c47592c2",
+    "summary": "說明如何從 Claude Code SDK 遷移到 Claude Agent SDK，包含套件更名、匯入修改與重大變更。",
+    "keywords": [
+      "Claude Agent SDK",
+      "migration guide",
+      "遷移指南",
+      "搬家",
+      "@anthropic-ai/claude-agent-sdk",
+      "claude-agent-sdk",
+      "ClaudeAgentOptions",
+      "ClaudeCodeOptions",
+      "breaking changes",
+      "重大變更",
+      "system prompt",
+      "settings sources",
+      "套件更名",
+      "升級"
+    ]
+  },
+  "agent-sdk/modifying-system-prompts": {
+    "sha": "808cb6fa108c010320d28e716d285c500a6088a2ecb9e68a45a34802e5cf3339",
+    "summary": "說明如何用 claude_code 預設、CLAUDE.md、輸出風格、append 或自訂提示詞修改 Agent SDK 的系統提示詞。",
+    "keywords": [
+      "system prompt",
+      "系統提示詞",
+      "systemPrompt",
+      "system_prompt",
+      "claude_code preset",
+      "預設提示",
+      "CLAUDE.md",
+      "output styles",
+      "輸出風格",
+      "append",
+      "prompt caching",
+      "提示快取",
+      "自訂提示詞",
+      "custom prompt"
+    ]
+  },
+  "agent-sdk/observability": {
+    "sha": "791a69d4db18a2c245c40120c7f15794208e26bf35ab53a78f2db312e0a54880",
+    "summary": "說明如何將 Agent SDK 的追蹤、指標與事件透過 OpenTelemetry 匯出到可觀測性後端。",
+    "keywords": [
+      "OpenTelemetry",
+      "OTLP",
+      "observability",
+      "可觀測性",
+      "監控",
+      "traces",
+      "追蹤",
+      "metrics",
+      "指標",
+      "log events",
+      "token 用量",
+      "telemetry export",
+      "遙測",
+      "敏感資料"
+    ]
+  },
+  "agent-sdk/overview": {
+    "sha": "04a1f9f705c7bf550396d9fdd74345ae8bbff5b07d64f0e06194f14e4b7701f1",
+    "summary": "Agent SDK 總覽：以函式庫形式在 Python 與 TypeScript 中使用 Claude Code 的代理迴圈、工具與上下文管理。",
+    "keywords": [
+      "Agent SDK",
+      "overview",
+      "總覽",
+      "agent loop",
+      "代理迴圈",
+      "Claude Code CLI",
+      "Client SDK",
+      "Managed Agents",
+      "built-in tools",
+      "內建工具",
+      "capabilities",
+      "功能",
+      "branding guidelines",
+      "license"
+    ]
+  },
+  "agent-sdk/permissions": {
+    "sha": "aba5e15bbf9d8d50ab3196f7df0418cf1e46342e9a3c946a4d114ae20cb6ad17",
+    "summary": "說明如何用權限模式、hooks、允許/拒絕規則與 canUseTool 回呼控制代理使用工具。",
+    "keywords": [
+      "permissions",
+      "權限",
+      "permission modes",
+      "權限模式",
+      "canUseTool",
+      "hooks",
+      "allow rules",
+      "deny rules",
+      "允許拒絕規則",
+      "acceptEdits",
+      "dontAsk",
+      "bypassPermissions",
+      "plan mode",
+      "auto mode"
+    ]
+  },
+  "agent-sdk/plugins": {
+    "sha": "66c4db39458e9303e44a61aea140ff4477629496e296d64d640f3cc8dd0398ce",
+    "summary": "說明如何透過 Agent SDK 載入本機外掛，以擴充技能、子代理、hooks 與 MCP 伺服器。",
+    "keywords": [
+      "plugins",
+      "外掛",
+      "擴充套件",
+      "skills",
+      "技能",
+      "agents",
+      "subagents",
+      "子代理",
+      "hooks",
+      "MCP servers",
+      "local path",
+      "本機路徑",
+      "plugin structure",
+      "疑難排解"
+    ]
+  },
+  "agent-sdk/python": {
+    "sha": "7b051aff665e71b618eb76555a851734b307a80a62bd967e3c7393e541f94cb1",
+    "summary": "Python Agent SDK 完整 API 參考，涵蓋函式、類別、型別、工作階段管理與 query 與 ClaudeSDKClient 的差異。",
+    "keywords": [
+      "Python SDK",
+      "API reference",
+      "API 參考",
+      "query()",
+      "ClaudeSDKClient",
+      "ClaudeAgentOptions",
+      "tool()",
+      "create_sdk_mcp_server",
+      "list_sessions",
+      "fork_session",
+      "setting_sources",
+      "工作階段",
+      "自訂工具",
+      "claude-agent-sdk"
+    ]
+  },
+  "agent-sdk/quickstart": {
+    "sha": "2aeb668afe38212f59b9505f051e98280dcdb81c76e91f2a656b0e9e3f2c4870",
+    "summary": "快速入門：建立專案、安裝 Agent SDK，並執行能自動找出並修復程式錯誤的代理。",
+    "keywords": [
+      "quickstart",
+      "快速入門",
+      "新手教學",
+      "安裝",
+      "setup",
+      "Agent SDK",
+      "TypeScript",
+      "Python",
+      "Node.js",
+      "buggy file",
+      "自動修 bug",
+      "prerequisites",
+      "key concepts",
+      "tsx"
+    ]
+  },
+  "agent-sdk/secure-deployment": {
+    "sha": "462e91e4f52a6f9eef864cf564cfa86291274842ee8551e705906208d552cdff",
+    "summary": "說明如何以隔離、憑證管理與網路控制，安全部署 Claude Code 與 Agent SDK 代理。",
+    "keywords": [
+      "secure deployment",
+      "安全部署",
+      "prompt injection",
+      "提示注入",
+      "threat model",
+      "威脅模型",
+      "least privilege",
+      "最小權限",
+      "sandbox",
+      "沙箱",
+      "containers",
+      "gVisor",
+      "credential proxy",
+      "憑證管理"
+    ]
+  },
+  "agent-sdk/session-storage": {
+    "sha": "2f5ebabc6da9da2764c03e813784c8fd24c642cdf19adf31871321dd90784651",
+    "summary": "說明如何以 SessionStore 轉接器將工作階段紀錄鏡像到外部儲存，讓其他主機能接續工作階段。",
+    "keywords": [
+      "SessionStore",
+      "session storage",
+      "工作階段儲存",
+      "session transcripts",
+      "對話紀錄",
+      "append",
+      "load",
+      "外部儲存",
+      "object store",
+      "database",
+      "資料庫",
+      "resume",
+      "續接",
+      "multi-host"
+    ]
+  }
+}

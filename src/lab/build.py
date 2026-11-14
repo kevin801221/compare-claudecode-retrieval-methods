@@ -8,8 +8,8 @@ import threading
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-from lab.common import (CONDS, INDEX_CACHE, MAPPING, WIKI, claude_json, is_under_home, leaking_ancestors,
-                        load_bodies, load_json, load_world, save_json, sha256, stage_root)
+from lab.common import (CONDS, INDEX_CACHE, MAPPING, WIKI, claude_json, fit_budget, is_under_home,
+                        leaking_ancestors, load_bodies, load_json, load_world, save_json, sha256, stage_root)
 from lab.wiki import check_wiki, load_wiki
 
 SETTINGS = {"permissions": {"deny": ["Bash", "Edit", "Write", "NotebookEdit", "WebFetch", "WebSearch"]}}
@@ -67,12 +67,16 @@ def _cell(text: str) -> str:
 
 
 def render_index(world: dict, paths: dict[str, str], rows: dict[str, dict]) -> str:
-    lines = ["# 文件索引", "", "| 路徑 | 標題 | 摘要 | 關鍵字 |", "|---|---|---|---|"]
-    for d in sorted(world["docs"], key=lambda d: paths[d["id"]]):
-        r = rows[d["id"]]
-        lines.append(f"| {paths[d['id']]} | {_cell(d['title'])} | {_cell(r['summary'])} | "
-                     f"{_cell('、'.join(r['keywords']))} |")
-    return "\n".join(lines) + "\n"
+    """每份文件一列：路徑、摘要、前 n 個關鍵字（n 取放得進 INDEX_BUDGET 的最大值；不放標題，省空間）。"""
+    docs = sorted(world["docs"], key=lambda d: paths[d["id"]])
+
+    def render(n: int) -> str:
+        lines = ["# 文件索引", "", "| 路徑 | 摘要 | 關鍵字 |", "|---|---|---|"]
+        lines += [f"| {paths[d['id']]} | {_cell(rows[d['id']]['summary'])} | "
+                  f"{_cell('、'.join(rows[d['id']]['keywords'][:n]))} |" for d in docs]
+        return "\n".join(lines) + "\n"
+
+    return fit_budget(render, max(len(rows[d["id"]]["keywords"]) for d in docs))
 
 
 def digest(body: str, limit: int = 3000) -> str:

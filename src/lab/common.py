@@ -7,6 +7,7 @@ import os
 import subprocess
 import tempfile
 import unicodedata
+from collections.abc import Callable
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -35,6 +36,16 @@ ISOLATION = ["--strict-mcp-config", "--setting-sources", "project",
              "--disable-slash-commands", "--no-session-persistence"]
 # Claude Code 會從工作目錄往上層找、並當成指示載入的檔案
 INSTRUCTION_FILES = ["CLAUDE.md", "CLAUDE.local.md", "AGENTS.md", ".claude/CLAUDE.md"]
+# Read 工具一次讀到約 3.3 萬字元就會截斷（truncatedByTokenCap）；入口檔（C 的 INDEX.md、D 的 wiki/index.md）要一次讀得完
+INDEX_BUDGET = 28_000
+
+
+def fit_budget(render: Callable[[int], str], most: int, budget: int = INDEX_BUDGET) -> str:
+    """render(n)：每筆只放前 n 個關鍵字。回傳放得進 budget 的最大 n 的結果。"""
+    for n in range(most, 0, -1):
+        if len(text := render(n)) <= budget:
+            return text
+    raise ValueError(f"每筆只放 1 個關鍵字仍超過 {budget} 字元")
 
 
 def stage_root() -> Path:

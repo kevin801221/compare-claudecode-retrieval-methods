@@ -7,13 +7,15 @@ from collections import Counter
 from pathlib import Path
 
 from lab.collect import clean_body
-from lab.common import CORPUS, ROOT, WIKI, load_world
+from lab.common import CORPUS, INDEX_BUDGET, ROOT, WIKI, fit_budget, load_world
 
 DOC_REF = re.compile(r"docs/[a-z-]+/[A-Za-z0-9_/.-]+\.md")
 WIKI_LINK = re.compile(r"\[\[([^\]|#]+)(?:[|#][^\]]*)?\]\]")
 LOCAL_PATH = re.compile(r"/Users/|/private/")   # 本機（macOS）路徑；/home/... 是文件裡沙盒的範例路徑，不算
 SPECIAL = {"index.md", "log.md"}
 TASK = ROOT / "docs" / "antigravity-wiki.md"
+CATEGORIES = {"concepts": "概念", "entities": "API 與設定", "guides": "操作指南", "versions": "版本與遷移",
+              "comparisons": "比較"}
 
 
 def check_wiki(files: dict[str, str], doc_paths: set[str]) -> tuple[list[str], list[str], dict]:
@@ -22,6 +24,9 @@ def check_wiki(files: dict[str, str], doc_paths: set[str]) -> tuple[list[str], l
     warnings: list[str] = []
     if "index.md" not in files:
         problems.append("缺少 index.md")
+    elif len(files["index.md"]) > INDEX_BUDGET:
+        problems.append(f"index.md 有 {len(files['index.md'])} 字元，超過 {INDEX_BUDGET}，Claude 一次讀不完"
+                        "（可以用 lab wiki-index 重建）")
     pages = {p: t for p, t in files.items() if p not in SPECIAL}
     cited: set[str] = set()
     broken: list[str] = []
@@ -47,6 +52,40 @@ def check_wiki(files: dict[str, str], doc_paths: set[str]) -> tuple[list[str], l
              "by_category": dict(Counter(p.split("/")[0] if "/" in p else "(根目錄)" for p in pages)),
              "links": links, "cited_docs": len(cited), "chars": sum(len(t) for t in files.values())}
     return problems, warnings, stats
+
+
+def render_wiki_index(files: dict[str, str]) -> str:
+    """依分類列出每一頁：[[分類/檔名]] — 摘要第一句。關鍵詞：前 n 個別名（n 取放得進 INDEX_BUDGET 的最大值）。
+    給 Antigravity 沒寫完 index.md 時用；內容全部取自各頁，不加入人工判斷。"""
+    entries: dict[str, list[tuple[str, str, list[str]]]] = {}
+    for path, text in sorted(files.items()):
+        if path in SPECIAL:
+            continue
+        alias = re.search(r"^別名：(.+)$", text, re.M)
+        summary = re.search(r"^## 摘要\n+(.+?)(?:。|\n)", text, re.M | re.S)
+        if not (alias and summary):
+            raise SystemExit(f"{path}：缺少「別名：」或「## 摘要」，無法放進 index")
+        cat = path.split("/")[0]
+        entries.setdefault(cat, []).append((path.removesuffix(".md"), summary.group(1).strip(),
+                                            alias.group(1).strip().split("、")))
+    cats = [c for c in CATEGORIES if c in entries] + sorted(set(entries) - set(CATEGORIES))
+
+    def render(n: int) -> str:
+        lines = ["# Wiki 目錄", ""]
+        for cat in cats:
+            lines.append(f"## {CATEGORIES.get(cat, cat)}（{cat}）")
+            lines += [f"- [[{link}]] — {s}。關鍵詞：{'、'.join(a[:n])}" for link, s, a in entries[cat]]
+            lines.append("")
+        return "\n".join(lines)
+
+    return fit_budget(render, max(len(a) for es in entries.values() for _, _, a in es))
+
+
+def wiki_index(src: Path) -> None:
+    """重建 Antigravity 工作資料夾裡的 wiki/index.md（會覆寫）。"""
+    text = render_wiki_index(load_wiki(src / "wiki"))
+    (src / "wiki" / "index.md").write_text(text, encoding="utf-8")
+    print(f"完成：{src / 'wiki' / 'index.md'}（{len(text)} 字元）")
 
 
 def doc_paths() -> set[str]:

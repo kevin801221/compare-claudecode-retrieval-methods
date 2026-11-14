@@ -1,4 +1,5 @@
-from lab.wiki import check_wiki
+from lab.common import INDEX_BUDGET
+from lab.wiki import check_wiki, render_wiki_index
 
 DOC_PATHS = {"docs/langgraph/persistence.md", "docs/agent-sdk/hooks.md", "docs/langchain/models.md"}
 
@@ -41,3 +42,13 @@ def test_problems_and_broken_links():
                      "concepts/c.md：出現本機路徑"]:
         assert expected in text
     assert any("[[concepts/missing]]" in w for w in warnings)
+
+
+def test_render_wiki_index_and_size_limit():
+    files = {"log.md": "x", "entities/hooks.md": HOOKS, "concepts/checkpointing.md": PAGE, "index.md": "舊的"}
+    lines = render_wiki_index(files).splitlines()
+    assert lines[2] == "## 概念（concepts）"   # 固定的分類順序：概念在 API 之前
+    assert lines[3] == "- [[concepts/checkpointing]] — 讓執行狀態可以存檔與恢復。關鍵詞：檢查點、存檔"
+    assert "- [[entities/hooks]] — 讓執行狀態可以存檔與恢復。關鍵詞：檢查點、存檔" in lines
+    problems, _, _ = check_wiki({"index.md": "x" * (INDEX_BUDGET + 1)}, set())
+    assert any("index.md" in p and "超過" in p for p in problems)   # 太長會被 Read 截斷

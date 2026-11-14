@@ -27,6 +27,8 @@ def main(argv: list[str] | None = None) -> None:
     we.add_argument("dst", help="工作資料夾位置（不能在 repo 裡）")
     wi = sub.add_parser("wiki-import", help="匯入 Antigravity 產出的 wiki 到 world/wiki/（D 組）")
     wi.add_argument("src", help="Antigravity 的工作資料夾（裡面有 wiki/）")
+    wx = sub.add_parser("wiki-index", help="由各頁的摘要與別名重建 wiki/index.md（Antigravity 沒寫完 index 時用）")
+    wx.add_argument("src", help="Antigravity 的工作資料夾（裡面有 wiki/）")
     sub.add_parser("wiki-check", help="檢查 world/wiki/")
 
     b = sub.add_parser("build", help="建立 A/B/C/D 四組實驗資料夾")
@@ -49,7 +51,7 @@ def main(argv: list[str] | None = None) -> None:
     elif args.cmd == "check":
         from lab.world import check
         check()
-    elif args.cmd in ("wiki-export", "wiki-import", "wiki-check"):
+    elif args.cmd in ("wiki-export", "wiki-import", "wiki-index", "wiki-check"):
         from pathlib import Path
 
         from lab import wiki
@@ -57,6 +59,8 @@ def main(argv: list[str] | None = None) -> None:
             wiki.wiki_export(Path(args.dst))
         elif args.cmd == "wiki-import":
             wiki.wiki_import(Path(args.src))
+        elif args.cmd == "wiki-index":
+            wiki.wiki_index(Path(args.src))
         else:
             wiki.wiki_check()
     elif args.cmd == "build":

@@ -29,10 +29,10 @@ def test_render_index_escapes_pipes_and_sorts_by_path():
     paths = layout(DOCS)["C-indexed"]
     rows = {d["id"]: {"summary": "摘要|有直線", "keywords": ["checkpointer", "檢查點"]} for d in DOCS["docs"]}
     lines = render_index(DOCS, paths, rows).splitlines()
-    assert lines[0] == "# 文件索引"
+    assert lines[0] == "# 文件索引" and lines[2] == "| 路徑 | 摘要 | 關鍵字 |"   # 不放標題，省空間
     assert [line.split(" | ")[0][2:] for line in lines[4:]] == sorted(paths.values())
     text = "\n".join(lines)
-    assert "Hooks／SDK" in text and "摘要／有直線" in text and "checkpointer、檢查點" in text
+    assert "Hooks" not in text and "摘要／有直線" in text and "checkpointer、檢查點" in text
 
 
 def test_digest_keeps_headings_and_limits_length():

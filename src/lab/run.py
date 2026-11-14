@@ -11,9 +11,10 @@ from functools import partial
 from pathlib import Path
 
 from lab.build import stage_problems
-from lab.common import (CLOSED, CONDS, ISOLATION, MAPPING, RESULTS_JSONL, RUNS, is_under_home, leaking_ancestors,
-                        load_bodies, load_json, load_world, read_rows, stage_root, world_id)
+from lab.common import (CLOSED, CONDS, ISOLATION, MAPPING, RESULTS_JSONL, RUNS, WIKI, is_under_home,
+                        leaking_ancestors, load_bodies, load_json, load_world, read_rows, stage_root, world_id)
 from lab.trace import isolation_problems, parse_stream, summarize
+from lab.wiki import load_wiki
 from lab.world import check_questions
 
 PROMPT = """你是公司內部的資料查詢助理。請只根據目前資料夾裡的文件回答下面的問題，不要憑自己的知識。
@@ -101,9 +102,10 @@ def _questions() -> list[dict]:
 
 
 def preflight(maps: dict, model: str, effort: str) -> None:
-    """開跑前檢查（設計第 6.3 節）：stage 狀態，以及每組一次檢查呼叫。"""
+    """開跑前檢查（設計第 6.3 節）：stage 狀態（含 D 組的 wiki 與 world/wiki 相同），以及每組一次檢查呼叫。"""
     root = stage_root()
-    problems = stage_problems(root, maps, load_bodies(load_world()))
+    wiki = load_wiki(WIKI) if WIKI.exists() else {}   # 沒有 world/wiki 時，D 組裡殘留的 wiki 也算不符
+    problems = stage_problems(root, maps, load_bodies(load_world()), wiki)
     for cond in CONDS:
         out, _ = _call(ask_cmd(PREFLIGHT_PROMPT, model, effort), root / cond, 180)
         problems += [f"{cond}：{p}" for p in isolation_problems(parse_stream(out))]

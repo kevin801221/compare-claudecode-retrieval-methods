@@ -27,7 +27,7 @@
 | 文件 | 官方原文 213 頁：LangChain、LangGraph、Deep Agents、Claude Agent SDK（第 4.1 節） |
 | 題目 | 由 Codex 出題（和作答的 Claude 不同家），再由程式驗證、使用者審題 |
 | 對照組 | 閉卷：不給文件問一次，找出「憑記憶就答得出來」的題目 |
-| 實驗組 | A 雜亂／B 整理／C 索引（第 5 節） |
+| 實驗組 | A 雜亂／B 整理／C 索引／D LLM wiki（第 5、14 節；D 組在 2026-11-14 追加） |
 | 觸發方式 | 手動一鍵執行，結果會累積 |
 | 呈現方式 | claude.ai 互動網頁，外加本機的 `report.md` 和 `results.csv` |
 | 答題方式 | `claude -p` headless 模式，由 Python 腳本呼叫（uv 管理） |
@@ -155,6 +155,7 @@ claude -p <prompt> --model haiku --effort medium --tools Read,Grep,Glob \
 | A 雜亂 | `A-messy/` | `docs/doc_001.md` 到 `doc_213.md`，用固定種子打亂順序，全部放同一層 |
 | B 整理 | `B-organized/` | `docs/<框架>/<頁面路徑>.md`，例如 `docs/langgraph/persistence.md` |
 | C 索引 | `C-indexed/` | B 的內容，再加上 `INDEX.md` 和 `CLAUDE.md` |
+| D LLM wiki | `D-wiki/` | B 的內容，再加上 Antigravity 產出的 `wiki/` 和 `CLAUDE.md`（見第 14 節） |
 
 - **三組共通：**
   - `.claude/settings.json` 完全相同：deny 了 Bash、Edit、Write、NotebookEdit、WebFetch、WebSearch。
@@ -343,3 +344,57 @@ Git 使用獨立的 repo。作者是 `kevin801221 <kevin801221@users.noreply.git
 - **模型代表性：** 只用 Haiku 測，結果不一定能套到 Sonnet 或 Opus。可以選配加跑一輪 `--model sonnet`。
 - **樣本小：** n = 40，不宣稱統計顯著，報表會標出 n 並附上成對比較。
 - **版本漂移：** Claude Code 升級可能改變結果，所以每一列都記錄 `claude_version`。
+
+## 14. D 組：LLM wiki（2026-11-14 追加）
+
+**目的：** 回答「花大量 token 做前處理，值不值得？」這個問題。D 組照 Karpathy 的 LLM Wiki 做法（2026-04 的 gist），把 213 頁文件「編譯」成一份互相連結的 Markdown wiki。C 組則是便宜的一頁一行索引，兩組形成對比。
+
+### 怎麼產生
+
+前處理交給 Antigravity，任務說明在 `docs/antigravity-wiki.md`。
+
+- **盲建：** 用 `lab wiki-export <資料夾>` 在 repo 外建立工作資料夾。裡面只有文件的唯讀副本和任務說明，**沒有題目和結果**。repo 裡的位置會被擋下。
+- **規則：**
+  - 只根據 `docs/` 撰寫，不上網、不憑記憶。
+  - 名稱與數值逐字照抄。
+  - 每頁都要有「## 出處」，並附中英對照的別名。
+  - 不能出現本機路徑。
+- **結構：**
+  - `wiki/index.md`：目錄，每頁一行，附摘要和關鍵詞。
+  - `wiki/log.md`：建置紀錄。
+  - 頁面分成 `concepts/`、`entities/`、`guides/`、`versions/`、`comparisons/`，頁面之間用 `[[分類/檔名]]` 連結。
+- **匯入與檢查：**
+  1. `lab wiki-import <資料夾>`：只匯入 `.md`，換行統一成 LF，存到 `world/wiki/`。
+  2. `lab wiki-check`：
+     - **問題**（必須修正）：缺少 `index.md`、頁面缺少「## 出處」、出處指向不存在的文件、出現本機路徑。
+     - **提醒**：連結指向不存在的頁面，或有文件沒被任何頁面引用。
+
+### D 組資料夾
+
+- **內容：** B 組的原始文件、`wiki/`，再加上下面這份 `CLAUDE.md`：
+
+```markdown
+# 資料查找指引
+- 先讀 wiki/index.md 找出相關頁面，再順著頁面裡的 [[連結]] 往下找（[[分類/檔名]] 對應 wiki/分類/檔名.md）。
+- 回答前，依頁面「## 出處」打開 docs/ 裡的原始文件確認內容。
+- 同一主題有多個版本時，以日期最新的為準。
+```
+
+- **建置時的檢查：** `world/wiki/` 必須存在，而且沒有「問題」。stage 檢查會確認以下幾點：
+  - 各組只有該有的額外檔案。
+  - C、D 兩組的 `CLAUDE.md` 內容正確。
+  - D 組的 `wiki/` 跟 `world/wiki/` 完全相同。
+- **world_id：** 納入 wiki 內容，換一份 wiki 就等於換一個世界。
+
+### 評分與統計
+
+- **新指標 `wiki_used`：** 有 Read 過任一 wiki 頁面，或 wiki 頁面出現在 Grep 內文結果中。
+- **引用比率：** 計算時排除 `wiki/` 開頭的來源，因為 wiki 頁面不算文件。
+- **成對比較：** 新增 B vs D、C vs D。
+- **一次性前處理成本：** Antigravity 用掉的 token 和時間，由使用者記錄，列在報表裡，跟「每題的成本」並列。
+- **每輪呼叫數：** 改為 40 題 × 4 組 = 160 次。
+
+### 限制
+
+- **兩個變因混在一起：** D 組的 wiki 由 Gemini 投入大量 token 產生，C 組的索引由 Sonnet 用少量 token 產生。所以 C 和 D 的差異同時反映了「做法」和「投入」，無法拆開。
+- **wiki 本身可能寫錯：** wiki 由 LLM 撰寫。如果 D 組因此答錯或產生幻覺，這也算是實驗結果的一部分。原始文件仍然在 D 組裡，可以讓 Claude 核對。

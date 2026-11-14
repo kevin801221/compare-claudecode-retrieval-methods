@@ -21,7 +21,8 @@ def main(argv: list[str] | None = None) -> None:
     c.add_argument("--only", nargs="+", choices=FRAMEWORKS, help="只下載部分框架（試跑用 agent-sdk）")
     c.add_argument("--force", action="store_true", help="覆寫既有的 world/docs.json")
 
-    sub.add_parser("check", help="檢查 world/questions.json 的題目")
+    ck = sub.add_parser("check", help="檢查 world/questions.json 的題目")
+    ck.add_argument("--file", help="改檢查另一個題目檔，例如 world/trial_questions.json")
 
     we = sub.add_parser("wiki-export", help="建立給 Antigravity 的工作資料夾（只有文件，沒有題目）")
     we.add_argument("dst", help="工作資料夾位置（不能在 repo 裡）")
@@ -49,8 +50,10 @@ def main(argv: list[str] | None = None) -> None:
         from lab.collect import collect
         collect(only=args.only, force=args.force)
     elif args.cmd == "check":
+        from pathlib import Path
+
         from lab.world import check
-        check()
+        check(Path(args.file) if args.file else None)
     elif args.cmd in ("wiki-export", "wiki-import", "wiki-index", "wiki-check"):
         from pathlib import Path
 

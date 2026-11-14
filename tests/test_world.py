@@ -47,3 +47,34 @@ def test_unanswerable_warning_when_terms_cooccur():
     _, warnings = check(q(type="unanswerable", must_include=[], gold_docs=[], probe_terms=["hooks", "timeout"],
                           answerable=False))
     assert warnings and "sdk/hooks" in warnings[0]
+
+
+def test_new_types_pass():
+    problems, warnings = check(
+        q(id="Q05", type="aggregate", must_include=["PreToolUse", "InMemorySaver"],
+          gold_docs=["sdk/hooks", "lg/persistence"]),
+        q(id="Q06", type="confusable", must_include=["create_agent"], must_not_include=["PreToolUse"],
+          gold_docs=["lg/persistence"]),
+        q(id="Q07", type="near_miss", must_include=[], gold_docs=[], probe_terms=["checkpointer", "TTL"],
+          answerable=False),
+    )
+    assert problems == [] and warnings == []
+
+
+def test_new_type_problems():
+    problems, _ = check(
+        q(id="Q01", type="aggregate", must_include=["60000"], gold_docs=["sdk/hooks"]),               # 彙整只有 1 份
+        q(id="Q02", type="aggregate", must_include=["PreToolUse", "3"], gold_docs=["sdk/hooks", "lg/persistence"]),
+        q(id="Q03", type="confusable", must_include=["create_agent"], gold_docs=["lg/persistence"]),   # 沒有另一種寫法
+        q(id="Q04", type="confusable", must_include=["InMemorySaver"], must_not_include=["Saver"],
+          gold_docs=["lg/persistence"]),                                                              # 互為子字串
+        q(id="Q05", type="confusable", must_include=["create_agent"], must_not_include=["useAgent"],
+          gold_docs=["lg/persistence"]),                                                              # 文件裡沒有
+        q(id="Q06", type="near_miss", must_include=[], gold_docs=[], probe_terms=["Ruby", "Rails"],
+          answerable=False),                                                                          # 主題不在文件裡
+    )
+    text = "\n".join(problems)
+    for expected in ["Q01：彙整題至少要 2 份", "Q02：彙整題的答案字串只放項目名稱", "Q03：易混淆題要有 must_not_include",
+                     "Q04：「Saver」和答案字串互為子字串", "Q05：另一種寫法「useAgent」不在任何文件裡",
+                     "Q06：近似陷阱題的主題「Ruby」要出現在文件裡"]:
+        assert expected in text

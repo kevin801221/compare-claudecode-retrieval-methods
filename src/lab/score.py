@@ -1,17 +1,21 @@
 """評分（純函式）：程式比對，不用 LLM 評審。定義見設計第 7 節。"""
 from __future__ import annotations
 
-from lab.common import norm
+from lab.common import MULTI_DOC_TYPES, norm
 
 NON_DOCS = {"INDEX.md", "CLAUDE.md"}   # 索引和指引不是文件，不計入引用
 
 
 def answer_correct(row: dict, q: dict) -> bool:
-    """可回答題：found 而且所有答案字串都出現；不可回答題：found=false。閉卷組也用這個判斷。"""
+    """可回答題：found 而且所有答案字串都出現；不可回答題：found=false。閉卷組也用這個判斷。
+    易混淆題另外要求沒有寫出另一個框架或語言的寫法（兩種都寫就分不出答的是哪一個）。"""
     if not q["answerable"]:
         return not row["found"]
     answer = norm(row["answer"])
-    return row["found"] and all(norm(t) in answer for t in q["must_include"])
+    ok = row["found"] and all(norm(t) in answer for t in q["must_include"])
+    if q["type"] == "confusable":
+        ok = ok and not any(norm(t) in answer for t in q["must_not_include"])
+    return ok
 
 
 def score(row: dict, q: dict, paths: dict[str, str]) -> dict:
@@ -21,7 +25,7 @@ def score(row: dict, q: dict, paths: dict[str, str]) -> dict:
                 "retrieved": None, "read_gold": None, "citation_hit": None, "citation_precision": None}
     answer = norm(row["answer"])
     gold = {paths[d] for d in q["gold_docs"]}
-    need_all = q["type"] == "multi_doc"   # 跨文件題要全部找到；其他題型找到任一份就算
+    need_all = q["type"] in MULTI_DOC_TYPES   # 跨文件、彙整題要全部找到；其他題型找到任一份就算
 
     def hit(files: set[str]) -> bool:
         return gold <= files if need_all else bool(gold & files)
@@ -30,10 +34,10 @@ def score(row: dict, q: dict, paths: dict[str, str]) -> dict:
     sources = {s for s in row["sources"] if s not in NON_DOCS and not s.startswith("wiki/")}   # wiki 頁面也不是文件
     has_new = all(norm(t) in answer for t in q["must_include"])
     stale = None
-    if q["type"] == "version":
+    if q["must_not_include"]:   # 新舊版本、易混淆：只寫了舊的（或別的框架的）寫法
         stale = (not has_new) and any(norm(t) in answer for t in q["must_not_include"])
     return {
-        "correct": row["found"] and has_new,
+        "correct": answer_correct(row, q),
         "hallucinated": bool(stale),
         "stale": stale,
         "retrieved": hit(read | set(row["files_grep_content"])),

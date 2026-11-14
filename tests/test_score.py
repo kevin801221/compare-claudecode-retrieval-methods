@@ -78,3 +78,23 @@ def test_answer_correct_for_closed_book():
     assert answer_correct(row("4200 mAh"), q("lookup", ["4200"])) is True
     assert answer_correct(row("不知道", found=False), q("lookup", ["4200"])) is False
     assert answer_correct(row("不知道", found=False), q("unanswerable", answerable=False)) is True
+
+
+def test_aggregate_needs_every_gold_doc():
+    s = score(row("A、B", read=["docs/a.md"]), q("aggregate", ["A", "B"], gold=("D1", "D2")), PATHS)
+    assert s["correct"] is True and s["retrieved"] is False   # 只碰到其中一份
+
+
+def test_confusable_counts_both_spellings_as_wrong():
+    qq = q("confusable", ["maxTurns"], ["max_turns"])
+    assert score(row("用 maxTurns"), qq, PATHS)["correct"] is True
+    both = score(row("TypeScript 用 maxTurns，Python 用 max_turns"), qq, PATHS)
+    assert both["correct"] is False and both["hallucinated"] is False   # 兩種都寫：程式算錯，閘門逐筆判讀
+    assert answer_correct(row("TypeScript 用 maxTurns，Python 用 max_turns"), qq) is False
+    wrong = score(row("用 max_turns"), qq, PATHS)
+    assert wrong["correct"] is False and wrong["stale"] is True and wrong["hallucinated"] is True
+
+
+def test_near_miss_scored_like_unanswerable():
+    s = score(row("文件沒有寫", found=False), q("near_miss", answerable=False), PATHS)
+    assert s["correct"] is True and s["hallucinated"] is False

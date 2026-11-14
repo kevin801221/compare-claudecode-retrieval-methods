@@ -27,9 +27,12 @@ CLOSED = "Z-closed"
 COND_LABELS = {"A-messy": "A 雜亂", "B-organized": "B 整理", "C-indexed": "C 索引", "D-wiki": "D wiki",
                CLOSED: "閉卷"}
 FRAMEWORKS = ["agent-sdk", "deepagents", "langchain", "langgraph"]
-QTYPES = ["lookup", "paraphrase", "version", "multi_doc", "unanswerable"]
+QTYPES = ["lookup", "paraphrase", "version", "multi_doc", "unanswerable", "aggregate", "confusable", "near_miss"]
 QTYPE_LABELS = {"lookup": "直接查找", "paraphrase": "換句話說", "version": "新舊版本",
-                "multi_doc": "跨文件", "unanswerable": "題庫裡沒有"}
+                "multi_doc": "跨文件", "unanswerable": "題庫裡沒有",
+                "aggregate": "彙整", "confusable": "易混淆", "near_miss": "近似陷阱"}
+MULTI_DOC_TYPES = {"multi_doc", "aggregate"}           # 答案分散在多份文件，檢索要全部碰到
+UNANSWERABLE_TYPES = {"unanswerable", "near_miss"}     # 文件沒有答案，應回答找不到
 
 # 不載入使用者設定、MCP、技能，也不留對話紀錄（設計第 3 節）
 ISOLATION = ["--strict-mcp-config", "--setting-sources", "project",

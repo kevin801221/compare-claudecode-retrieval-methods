@@ -2,10 +2,13 @@
 from __future__ import annotations
 
 from collections import Counter
+from pathlib import Path
 
-from lab.common import QTYPE_LABELS, QTYPES, load_bodies, load_world, norm
+from lab.common import (MULTI_DOC_TYPES, QTYPE_LABELS, QTYPES, UNANSWERABLE_TYPES, load_bodies, load_json,
+                        load_world, norm)
 
 FIELDS = ["id", "type", "question", "must_include", "must_not_include", "gold_docs", "probe_terms", "answerable"]
+CONTRAST = {"version": "舊的寫法", "confusable": "另一個框架或語言的寫法"}   # 這些題型要填 must_not_include
 
 
 def check_questions(world: dict, bodies: dict[str, str]) -> tuple[list[str], list[str]]:
@@ -26,19 +29,22 @@ def check_questions(world: dict, bodies: dict[str, str]) -> tuple[list[str], lis
         if q["type"] not in QTYPES:
             problems.append(f"{qid}：未知題型 {q['type']}")
             continue
-        if q["answerable"] != (q["type"] != "unanswerable"):
+        if q["answerable"] != (q["type"] not in UNANSWERABLE_TYPES):
             problems.append(f"{qid}：answerable 與題型不符")
         if unknown := [d for d in q["gold_docs"] if d not in docs]:
             problems.append(f"{qid}：找不到文件 {', '.join(unknown)}")
             continue
         tokens = [norm(t) for t in q["must_include"]]
-        if q["type"] == "unanswerable":
+        label = QTYPE_LABELS[q["type"]]
+        if q["type"] in UNANSWERABLE_TYPES:
             if q["gold_docs"] or q["must_include"]:
                 problems.append(f"{qid}：題庫裡沒有的題目，gold_docs 和 must_include 要留空")
             if len(q["probe_terms"]) != 2:
                 problems.append(f"{qid}：probe_terms 要剛好 2 個")
             else:
                 entity, attr = (norm(t) for t in q["probe_terms"])
+                if q["type"] == "near_miss" and not any(entity in b for b in normed.values()):
+                    problems.append(f"{qid}：近似陷阱題的主題「{q['probe_terms'][0]}」要出現在文件裡")
                 both = [d for d, b in normed.items() if entity in b and attr in b]
                 if both:
                     warnings.append(f"{qid}：「{q['probe_terms'][0]}」和「{q['probe_terms'][1]}」同時出現在 "
@@ -47,9 +53,11 @@ def check_questions(world: dict, bodies: dict[str, str]) -> tuple[list[str], lis
         if not tokens:
             problems.append(f"{qid}：缺少答案字串")
             continue
-        if q["type"] == "multi_doc":
+        if q["type"] in MULTI_DOC_TYPES:
             if len(q["gold_docs"]) < 2:
-                problems.append(f"{qid}：跨文件題至少要 2 份 gold 文件")
+                problems.append(f"{qid}：{label}題至少要 2 份 gold 文件")
+            if q["type"] == "aggregate" and (nums := [raw for raw in q["must_include"] if raw.strip().isdigit()]):
+                problems.append(f"{qid}：彙整題的答案字串只放項目名稱，不要放個數（{'、'.join(nums)}）")
             for token, raw in zip(tokens, q["must_include"]):
                 if not any(token in normed[d] for d in q["gold_docs"]):
                     problems.append(f"{qid}：答案「{raw}」不在任何 gold 文件裡")
@@ -66,16 +74,25 @@ def check_questions(world: dict, bodies: dict[str, str]) -> tuple[list[str], lis
         extra = [d for d, b in normed.items() if d not in q["gold_docs"] and all(t in b for t in tokens)]
         if extra:
             problems.append(f"{qid}：完整答案也出現在 {', '.join(extra[:5])}，請加進 gold_docs 或換一個答案字串")
-        if q["type"] == "version" and not q["must_not_include"]:
-            problems.append(f"{qid}：新舊版本題要有 must_not_include（舊的寫法）")
+        if q["type"] in CONTRAST and not q["must_not_include"]:
+            problems.append(f"{qid}：{label}題要有 must_not_include（{CONTRAST[q['type']]}）")
+        if q["type"] == "confusable":   # 兩種寫法都寫出來會被判錯，所以不能互為子字串，另一種寫法也要真的存在
+            for raw in q["must_not_include"]:
+                other = norm(raw)
+                if any(other in t or t in other for t in tokens):
+                    problems.append(f"{qid}：「{raw}」和答案字串互為子字串，程式會誤判")
+                if not any(other in b for b in normed.values()):
+                    problems.append(f"{qid}：另一種寫法「{raw}」不在任何文件裡")
     return problems, warnings
 
 
-def check() -> None:
-    """lab check：印出題目統計、提醒和問題；有問題時以非 0 結束。"""
+def check(path: Path | None = None) -> None:
+    """lab check：印出題目統計、提醒和問題；有問題時以非 0 結束。path：改檢查另一個題目檔（例如試題）。"""
     world = load_world()
+    if path is not None:
+        world["questions"] = load_json(path)
     if not world["questions"]:
-        raise SystemExit("world/questions.json 還沒有題目，請先依照 docs/codex-questions.md 出題")
+        raise SystemExit(f"{path or 'world/questions.json'} 還沒有題目，請先依照 docs/codex-questions.md 出題")
     problems, warnings = check_questions(world, load_bodies(world))
     counts = Counter(q.get("type") for q in world["questions"])
     print(f"文件 {len(world['docs'])} 份，題目 {len(world['questions'])} 題："

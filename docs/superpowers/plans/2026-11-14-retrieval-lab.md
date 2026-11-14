@@ -46,6 +46,9 @@
 - `/Users/Shared` 可以寫入，它和所有上層資料夾都沒有 CLAUDE.md 或 AGENTS.md。
 - init 事件的 `memory_paths` 只列出 auto memory 目錄，**不能**用來確認 CLAUDE.md 有沒有載入。改用行為證據：端到端實測時，C 組的第一個動作就是照 CLAUDE.md 指引去讀 `INDEX.md`。報表會記錄每組「讀了索引」的比例。
 - 端到端實測（3 份文件、2 題）時，有些呼叫只看 Grep 內文結果就作答，完全沒有 Read。所以檢索命中必須把 Grep 內文結果算進去。
+- stream-json 預設**不會**輸出 hook 事件，要加 `--include-hook-events` 才會出現 `hook_started`／`hook_response`。所以評測呼叫一律加上這個參數，開跑前檢查裡「沒有 hook 事件」那一項才有意義。實測沒有 hook 的資料夾是 0 筆，沒有載入任何 SessionStart hook。
+- 專案 `.claude/settings.json` 裡的 hooks，在「未信任」的工作區、`-p` 模式下仍然會執行，這點和 `permissions.allow` 不同。
+- `claude -p` 的 stdin 不是終端機時，會先等 3 秒讀 stdin，所以所有 subprocess 呼叫都加上 `stdin=subprocess.DEVNULL`。
 
 ## 共通規則
 
@@ -348,7 +351,7 @@ def claude_json(prompt: str, schema: dict, model: str, timeout: int = 900) -> di
         proc = subprocess.run(
             ["claude", "-p", prompt, "--model", model, "--output-format", "json", "--tools", "",
              "--json-schema", json.dumps(schema, ensure_ascii=False), *ISOLATION],
-            cwd=tmp, capture_output=True, text=True, timeout=timeout,
+            cwd=tmp, stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=timeout,
         )
     if proc.returncode != 0:
         raise RuntimeError(f"claude -p 失敗（exit {proc.returncode}）：{proc.stderr[-500:]}")
@@ -1568,7 +1571,8 @@ from lab.run import ANSWER_SCHEMA, ask_cmd, done_keys
 def test_ask_cmd_has_isolation_flags():
     cmd = ask_cmd("問題", "haiku", "medium")
     assert cmd[:3] == ["claude", "-p", "問題"]
-    for flag in ["--strict-mcp-config", "--disable-slash-commands", "--no-session-persistence", "--verbose"]:
+    for flag in ["--strict-mcp-config", "--disable-slash-commands", "--no-session-persistence", "--verbose",
+                 "--include-hook-events"]:
         assert flag in cmd
     assert cmd[cmd.index("--setting-sources") + 1] == "project"
     assert cmd[cmd.index("--tools") + 1] == "Read,Grep,Glob"
@@ -1631,6 +1635,7 @@ PREFLIGHT_PROMPT = "這是連線檢查：不要使用任何工具，直接回答
 def ask_cmd(prompt: str, model: str, effort: str) -> list[str]:
     return ["claude", "-p", prompt, "--model", model, "--effort", effort,
             "--tools", "Read,Grep,Glob", "--output-format", "stream-json", "--verbose",
+            "--include-hook-events",
             "--json-schema", json.dumps(ANSWER_SCHEMA, ensure_ascii=False), *ISOLATION]
 
 
@@ -1646,7 +1651,7 @@ def preflight(maps: dict, model: str, effort: str) -> None:
     problems = stage_problems(root, maps, load_bodies(load_json(FACTS)))
     for cond in CONDS:
         proc = subprocess.run(ask_cmd(PREFLIGHT_PROMPT, model, effort), cwd=root / cond,
-                              capture_output=True, text=True, timeout=180)
+                              stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=180)
         problems += [f"{cond}：{p}" for p in isolation_problems(parse_stream(proc.stdout))]
     if problems:
         raise SystemExit("開跑前檢查失敗：\n" + "\n".join(f"- {p}" for p in problems))
@@ -1661,7 +1666,8 @@ def ask_one(rnd: int, cond: str, q: dict, paths: dict[str, str], model: str, eff
     error = None
     try:
         proc = subprocess.run(ask_cmd(PROMPT.format(question=q["question"]), model, effort),
-                              cwd=cdir, capture_output=True, text=True, timeout=timeout)
+                              cwd=cdir, stdin=subprocess.DEVNULL, capture_output=True, text=True,
+                              timeout=timeout)
         out = proc.stdout
         if proc.returncode != 0:
             error = f"exit {proc.returncode}：{proc.stderr[-300:]}"

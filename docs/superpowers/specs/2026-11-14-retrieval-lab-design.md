@@ -161,8 +161,10 @@ cwd 設為 `<stage>/<組別>`：
 ```
 claude -p <PROMPT> --model <model> --tools Read,Grep,Glob --strict-mcp-config \
   --setting-sources project --disable-slash-commands --no-session-persistence \
-  --output-format stream-json --verbose --json-schema <ANSWER_SCHEMA>
+  --output-format stream-json --verbose --include-hook-events --json-schema <ANSWER_SCHEMA>
 ```
+
+`--include-hook-events` 讓 hook 事件出現在輸出中，開跑前檢查才能確認沒有任何 hook 被載入。stdin 一律接 `/dev/null`，避免 `claude -p` 先等 3 秒讀 stdin。
 
 **答案格式：** `ANSWER_SCHEMA` 規定 `{answer: string, sources: string[], found: boolean}`，三個欄位都是必填。
 

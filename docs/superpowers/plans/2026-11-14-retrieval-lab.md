@@ -44,6 +44,8 @@
 - `--output-format json --tools ""` 也可以用，輸出是單一的 result 物件。
 - Haiku 支援 `--effort`，本計畫固定用 `medium`。
 - `/Users/Shared` 可以寫入，它和所有上層資料夾都沒有 CLAUDE.md 或 AGENTS.md。
+- init 事件的 `memory_paths` 只列出 auto memory 目錄，**不能**用來確認 CLAUDE.md 有沒有載入。改用行為證據：端到端實測時，C 組的第一個動作就是照 CLAUDE.md 指引去讀 `INDEX.md`。報表會記錄每組「讀了索引」的比例。
+- 端到端實測（3 份文件、2 題）時，有些呼叫只看 Grep 內文結果就作答，完全沒有 Read。所以檢索命中必須把 Grep 內文結果算進去。
 
 ## 共通規則
 
@@ -470,11 +472,19 @@ def test_summarize_ok_row():
     assert row["tool_calls"] == 5                             # StructuredOutput 不算
     assert row["input_tokens"] == 1110 and row["output_tokens"] == 50
     assert row["claude_version"] == "2.1.325"
+    assert row["index_used"] is False
 
 
 def test_summarize_without_result_is_error():
     row = summarize(parse_stream(INIT), [ROOT], KNOWN)
     assert row["status"] == "error" and row["answer"] == ""
+
+
+def test_index_used_when_index_read():
+    stream = "\n".join([INIT, tool_use("i", "Read", {"file_path": f"{ROOT}/INDEX.md"}),
+                        tool_result("i", {"type": "text"}), RESULT])
+    row = summarize(parse_stream(stream), [ROOT], KNOWN)
+    assert row["index_used"] is True and row["files_read"] == []   # INDEX.md 不算文件
 
 
 def test_isolation_problems():
@@ -613,6 +623,7 @@ def summarize(trace: dict, roots: list[str], known: set[str]) -> dict:
     ok = res.get("subtype") == "success" and not res.get("is_error") and isinstance(out, dict)
     out = out if isinstance(out, dict) else {}
     read, grep = touched_files(trace["calls"], roots, known)
+    idx_read, idx_grep = touched_files(trace["calls"], roots, {"INDEX.md"})
     return {
         "status": "ok" if ok else "error",
         "error": None if ok else str(res.get("result") or res.get("subtype") or "沒有 result 事件")[:300],
@@ -621,6 +632,7 @@ def summarize(trace: dict, roots: list[str], known: set[str]) -> dict:
         "found": bool(out.get("found", False)),
         "files_read": read,
         "files_grep_content": grep,
+        "index_used": bool(idx_read or idx_grep),
         "tool_calls": sum(1 for c in trace["calls"] if c["name"] != "StructuredOutput"),
         "turns": res.get("num_turns"),
         "duration_ms": res.get("duration_ms"),
@@ -637,7 +649,7 @@ def summarize(trace: dict, roots: list[str], known: set[str]) -> dict:
 - [ ] **Step 4：確認測試通過**
 
 Run: `uv run pytest tests/test_trace.py -v`
-Expected：7 passed
+Expected：8 passed
 
 - [ ] **Step 5：Commit**
 
@@ -692,6 +704,11 @@ def test_citation_precision_partial():
     assert s["citation_hit"] is True and s["citation_precision"] == 0.5
 
 
+def test_index_in_sources_does_not_lower_precision():
+    s = score(row("4200", read=["docs/a.md"], sources=["INDEX.md", "docs/a.md"]), q("lookup", ["4200"]), PATHS)
+    assert s["citation_precision"] == 1.0
+
+
 def test_version_new_value_with_old_mentioned_is_correct():
     s = score(row("2025 版 1200 元，2024 版是 1000 元"), q("version", ["1200"], ["1000"]), PATHS)
     assert s["correct"] is True and s["stale"] is False and s["hallucinated"] is False
@@ -731,6 +748,8 @@ from __future__ import annotations
 
 from lab.common import norm
 
+NON_DOCS = {"INDEX.md", "CLAUDE.md"}   # 索引和指引不是文件，不計入引用比率
+
 
 def score(row: dict, q: dict, paths: dict[str, str]) -> dict:
     """row：results.jsonl 的一列；q：題目；paths：該組的 doc_id → 相對路徑。不適用的指標回傳 None。"""
@@ -740,7 +759,7 @@ def score(row: dict, q: dict, paths: dict[str, str]) -> dict:
     answer = norm(row["answer"])
     gold = {paths[d] for d in q["gold_docs"]}
     read = set(row["files_read"])
-    sources = set(row["sources"])
+    sources = set(row["sources"]) - NON_DOCS
     has_new = all(norm(t) in answer for t in q["must_include"])
     stale = None
     if q["type"] == "version":
@@ -759,7 +778,7 @@ def score(row: dict, q: dict, paths: dict[str, str]) -> dict:
 - [ ] **Step 4：確認測試通過**
 
 Run: `uv run pytest tests/test_score.py -v`
-Expected：8 passed
+Expected：9 passed
 
 - [ ] **Step 5：Commit**
 
@@ -779,7 +798,7 @@ git commit -m "feat: 以程式比對評分（答對、幻覺、檢索命中、�
 - [ ] **Step 1：寫測試**
 
 ```python
-from lab.generate import PATH_TRACE, assemble, check_item, fix_slugs, validate
+from lab.generate import PATH_TRACE, answer_leaks, assemble, check_item, fix_slugs, validate
 
 
 def spec(title, category="產品", slug="s", facts=("事實",)):
@@ -852,6 +871,12 @@ def test_validate_flags_each_problem():
     assert ("D005", "path_trace") in kinds
     assert ("D005", "unanswerable_leak") in kinds
     assert {p["doc"]: p["avoid"] for p in problems if p["avoid"]} == {"D002": "1000", "D005": "重量"}
+
+
+def test_answer_leaks_lists_non_gold_docs_with_answer():
+    facts = make_facts()
+    assert answer_leaks(facts, GOOD) == []
+    assert answer_leaks(facts, GOOD | {"D005": "# 週會\nXR-7 電池 4200 mAh。"}) == [("Q01", "4200", "D005")]
 
 
 def test_path_trace_pattern():
@@ -992,12 +1017,23 @@ def validate(facts: dict, bodies: dict[str, str]) -> list[dict]:
                 if norm(entity) in b and norm(attr) in b:
                     add(doc_id, "unanswerable_leak", f"{q['id']} 文件同時提到「{entity}」和「{attr}」", avoid=attr)
     return problems
+
+
+def answer_leaks(facts: dict, bodies: dict[str, str]) -> list[tuple[str, str, str]]:
+    """審題用：列出「不是 gold、卻也含有答案字串」的文件，格式為 (qid, 答案字串, doc_id)。"""
+    leaks = []
+    for q in facts["questions"]:
+        for token in q["must_include"]:
+            for doc_id, body in bodies.items():
+                if doc_id not in q["gold_docs"] and norm(token) in norm(body):
+                    leaks.append((q["id"], token, doc_id))
+    return leaks
 ```
 
 - [ ] **Step 4：確認測試通過**
 
 Run: `uv run pytest tests/test_generate.py -v`
-Expected：6 passed
+Expected：7 passed
 
 - [ ] **Step 5：Commit**
 
@@ -1244,7 +1280,7 @@ def generate(pilot: bool, model: str = "sonnet", force: bool = False) -> None:
 - [ ] **Step 3：確認既有測試仍然通過**
 
 Run: `uv run pytest -v`
-Expected：24 passed（common 3 + trace 7 + score 8 + generate 6）
+Expected：27 passed（common 3 + trace 8 + score 9 + generate 7）
 
 - [ ] **Step 4：煙霧測試（真的呼叫一次 Haiku，花費約幾美分）**
 
@@ -1692,7 +1728,7 @@ from lab.report import aggregate
 def r(cond, qid, rnd, correct, qtype="lookup", **kw):
     base = {"cond": cond, "qid": qid, "round": rnd, "type": qtype, "correct": correct, "hallucinated": False,
             "retrieved": correct, "citation_hit": correct, "tool_calls": 2, "files_read_n": 1,
-            "duration_s": 3.0, "cost_usd": 0.01}
+            "duration_s": 3.0, "cost_usd": 0.01, "index_used": False}
     return base | kw
 
 
@@ -1741,12 +1777,12 @@ from lab.common import (COND_LABELS, CONDS, FACTS, MAPPING, QTYPE_LABELS, QTYPES
 from lab.score import score
 
 METRICS = [("correct", "答對率"), ("hallucinated", "幻覺率"), ("retrieved", "檢索命中率"),
-           ("citation_hit", "引用命中率")]
+           ("citation_hit", "引用命中率"), ("index_used", "讀了索引")]
 EFFICIENCY = [("tool_calls", "平均工具呼叫"), ("files_read_n", "平均讀檔數"),
               ("duration_s", "平均秒數"), ("cost_usd", "平均花費 USD")]
 PAIRS = [("A-messy", "C-indexed"), ("B-organized", "C-indexed"), ("A-messy", "B-organized")]
 CSV_FIELDS = ["model", "effort", "round", "cond", "qid", "type", "correct", "hallucinated", "stale",
-              "retrieved", "read_gold", "citation_hit", "citation_precision", "tool_calls",
+              "retrieved", "read_gold", "citation_hit", "citation_precision", "index_used", "tool_calls",
               "files_read_n", "duration_s", "cost_usd", "found", "answer"]
 
 
@@ -1771,7 +1807,7 @@ def aggregate(rows: list[dict]) -> dict:
         for rnd in rounds:
             rr = [r for r in rows if r["cond"] == cond and r["round"] == rnd]
             if rr:
-                per_round.append({k: _avg([r[k] for r in rr]) for k in keys})
+                per_round.append({k: _avg([r.get(k) for r in rr]) for k in keys})
         summary[cond] = {}
         for k in keys:
             vals = [p[k] for p in per_round if p[k] is not None]
@@ -1850,7 +1886,8 @@ def dashboard(agg: dict, rows: list[dict], facts: dict, maps: dict, model: str, 
     questions = []
     for q in facts["questions"]:
         results = {cond: [{"round": r["round"], "answer": _clean(r["answer"]), "found": r["found"],
-                           "correct": r["correct"], "files_read": r["files_read"],
+                           "correct": r["correct"], "retrieved": r["retrieved"],
+                           "index_used": r.get("index_used"), "files_read": r["files_read"],
                            "files_grep": r["files_grep_content"], "tool_calls": r["tool_calls"],
                            "duration_s": round(r["duration_s"], 1)}
                           for r in sorted(rows, key=lambda r: r["round"])
@@ -1891,7 +1928,7 @@ def report(model: str = "haiku", effort: str = "medium") -> None:
 - [ ] **Step 4：確認全部測試通過**
 
 Run: `uv run pytest -v`
-Expected：32 passed（common 3 + trace 7 + score 8 + generate 6 + build 4 + run 2 + report 2）
+Expected：35 passed（common 3 + trace 8 + score 9 + generate 7 + build 4 + run 2 + report 2）
 
 - [ ] **Step 5：Commit**
 
@@ -1922,9 +1959,23 @@ Run:
 jq -r '.questions[] | "\(.id)｜\(.type)｜\(.question)｜答案：\(.must_include | join("、"))｜舊值：\(.must_not_include | join("、"))｜探測：\(.probe_terms | join("＋"))"' world/facts.json
 ```
 
+再列出「答案字串也出現在非 gold 文件」的情況。這種情況下，Claude 可能從別份文件答對，檢索命中卻記為未命中：
+
+```bash
+uv run python -c "
+from lab.build import load_bodies
+from lab.common import FACTS, load_json
+from lab.generate import answer_leaks
+facts = load_json(FACTS)
+for qid, token, doc in answer_leaks(facts, load_bodies(facts)):
+    print(f'{qid}：答案「{token}」也出現在非 gold 文件 {doc}')
+"
+```
+Expected：沒有輸出最理想。有輸出的話，審題時一併請使用者決定：改答案字串、改那份文件，或接受（例如只是巧合出現同一個數字）。
+
 - [ ] **Step 3：停下來，請使用者審題**
 
-把 10 題貼給使用者，請他確認題目是否合理、答案是否明確。依照意見修改 `world/facts.json`；有改到答案的話，也要同步修改對應的 `world/corpus/` 文件。
+把 10 題和答案外洩清單貼給使用者，請他確認題目是否合理、答案是否明確。依照意見修改 `world/facts.json`；有改到答案的話，也要同步修改對應的 `world/corpus/` 文件。
 
 使用者同意後才進入下一步。
 
@@ -1987,6 +2038,12 @@ jq -r '.questions[] | .question as $q | .gold_answer as $g | .results | to_entri
 
 如果有判錯的情況（例如答案用了不同寫法），先在 `tests/test_score.py` 加一個會失敗的測試重現它，再修改 `score.py` 或 `common.norm`，讓測試通過，然後重新執行 `uv run lab report`。
 
+接著列出 C 組「答對、但沒碰過 gold 文件」的紀錄，看看 Claude 是不是直接從 INDEX.md 的摘要拿到答案。這種情況會讓 C 組的檢索命中率看起來偏低：
+
+```bash
+jq -r '.questions[] | .id as $id | .results["C-indexed"][] | select(.correct and .retrieved == false) | "\($id) 第 \(.round) 輪：答對但沒碰過 gold 文件（讀了索引：\(.index_used)）"' results/dashboard.json
+```
+
 - [ ] **Step 7：校正用量估算**
 
 Run:
@@ -2006,12 +2063,13 @@ print('平均秒數', sum(float(r['duration_s']) for r in rows) / n)
 
 - [ ] **Step 8：停下來，向使用者回報試跑結果**
 
-回報內容：
-- 總表與題型表。
-- 抽查結果。
-- 實測用量，以及正式版預估的時間和花費。
+試跑只用來確認**流程和評分正確**，不用來判斷難度。20 份文件時 Grep 幾乎什麼都找得到，三組很可能都接近滿分，但這不代表 200 份時也一樣。難度留到 Task 12，用正式版第 1 輪判斷。
 
-**判斷難度：** 如果三組在某種題型全部都是 100% 或全部 0%，向使用者提出**對三組一視同仁**的難度調整，例如題目改得更口語、增加干擾文件。不可以針對某一組調整。
+回報內容：
+- 總表與題型表，並說明在試跑規模下接近滿分是預期中的事。
+- 抽查結果，以及 Step 6 找到的評分問題與修正。
+- C 組「答對但沒碰過 gold 文件」的筆數（Step 6 第二個指令）。
+- 實測用量，以及正式版預估的時間和花費。
 
 使用者同意後才進入正式版。
 
@@ -2037,7 +2095,7 @@ Expected：`完成：200 份文件、40 題，寫入 …/world`
 
 - [ ] **Step 2：列出 40 題，停下來請使用者審題**
 
-指令同 Task 10 Step 2。使用者同意後才繼續。
+指令同 Task 10 Step 2（題目清單和答案外洩清單兩個都要跑）。使用者同意後才繼續。
 
 - [ ] **Step 3：建置並 commit**
 
@@ -2049,16 +2107,29 @@ git add world build/mapping.json
 git commit -m "data: 正式版虛構世界（200 份文件、40 題）與盲建索引"
 ```
 
-- [ ] **Step 4：跑 3 輪**
+- [ ] **Step 4：先跑第 1 輪**
 
-總共 360 次呼叫。
+120 次呼叫。
 
-Run: `uv run lab run --rounds 3`
-Expected：先印出 `開跑前檢查通過`，接著是第 1–3 輪，每輪 120 行。中斷的話，重跑同一個指令即可續跑。
+Run: `uv run lab run --rounds 1 && uv run lab report`
+Expected：先印出 `開跑前檢查通過`，接著 120 行，最後印出報表。中斷的話，重跑同一個指令即可續跑。
 
-- [ ] **Step 5：產生報表並 commit**
+- [ ] **Step 5：停下來，用第 1 輪判斷難度**
 
-Run: `uv run lab report`
+把總表、題型表，以及 C 組「答對但沒碰過 gold 文件」的筆數（指令同 Task 11 Step 6）回報給使用者。
+
+如果三組在多數題型都是 100%（天花板效應）或都是 0%，向使用者提出**對三組一視同仁**的調整，例如題目改得更口語、增加干擾文件。不可以針對某一組調整。
+
+調整就等於換一個新世界，要回到 Step 1 重新生成。舊的第 1 輪會因為 world_id 不同，自動不納入統計。
+
+使用者同意維持現狀後才繼續。
+
+- [ ] **Step 6：補跑第 2、3 輪，產生報表並 commit**
+
+240 次呼叫。
+
+Run: `uv run lab run --rounds 3 && uv run lab report`
+Expected：第 1 輪顯示「已經完成，跳過」，接著跑第 2、3 輪，最後印出報表。
 
 ```bash
 git add results
@@ -2086,7 +2157,7 @@ Expected：`0`。不是 0 的話，先修正 `report._clean` 再重產報表。
 
 | 區塊 | 內容 |
 |---|---|
-| 總覽 | 三組的答對率、檢索命中率、幻覺率長條圖（`summary.<cond>.<metric>.mean`，誤差範圍用 min–max）；效率數字（平均工具呼叫、讀檔數、秒數） |
+| 總覽 | 三組的答對率、檢索命中率、幻覺率長條圖（`summary.<cond>.<metric>.mean`，誤差範圍用 min–max）；效率數字（平均工具呼叫、讀檔數、秒數）；C 組讀了索引的比例 |
 | 題型 × 組別熱度表 | `by_type` |
 | 成對比較 | `paired`，標出可比較題數 n |
 | 逐題展開 | 依題型篩選，每題顯示題目、標準答案、三組各輪的回答、讀過的檔案、對錯 |

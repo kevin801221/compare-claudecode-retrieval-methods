@@ -22,7 +22,8 @@ HOOKS = PAGE.replace("# Checkpointing", "# Hooks").replace("docs/langgraph/persi
 
 def test_good_wiki_passes_with_coverage_warning():
     files = {"index.md": "- [[concepts/checkpointing]]\n", "log.md": "## [2026-11-14] ingest | docs/langgraph/persistence.md\n",
-             "concepts/checkpointing.md": PAGE, "entities/hooks.md": HOOKS}
+             "concepts/checkpointing.md": PAGE,
+             "entities/hooks.md": HOOKS + "\n沙盒預設工作目錄：`/home/user`\n"}   # 文件裡的範例路徑，不是本機路徑
     problems, warnings, stats = check_wiki(files, DOC_PATHS)
     assert problems == []
     assert len(warnings) == 1 and "docs/langchain/models.md" in warnings[0]   # 沒被引用的文件只算提醒

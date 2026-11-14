@@ -11,7 +11,7 @@ from lab.common import CORPUS, ROOT, WIKI, load_world
 
 DOC_REF = re.compile(r"docs/[a-z-]+/[A-Za-z0-9_/.-]+\.md")
 WIKI_LINK = re.compile(r"\[\[([^\]|#]+)(?:[|#][^\]]*)?\]\]")
-LOCAL_PATH = re.compile(r"/Users/|/private/|/home/")
+LOCAL_PATH = re.compile(r"/Users/|/private/")   # 本機（macOS）路徑；/home/... 是文件裡沙盒的範例路徑，不算
 SPECIAL = {"index.md", "log.md"}
 TASK = ROOT / "docs" / "antigravity-wiki.md"
 

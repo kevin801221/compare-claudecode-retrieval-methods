@@ -2,7 +2,7 @@
   {
     "id": "Q01",
     "type": "lookup",
-    "question": "TypeScript SDK 的 reloadPlugins() 如果要在同一個 session 追加本機 plugin 目錄，應使用哪個選項？這個選項最低需要哪個 Agent SDK 版本？",
+    "question": "Claude Agent SDK 的 TypeScript 介面若要透過 reloadPlugins() 在同一個 session 追加本機 plugin 目錄，應使用哪個選項？這個選項最低需要哪個 Agent SDK 版本？",
     "must_include": [
       "addPlugins",
       "0.3.301"
@@ -33,7 +33,7 @@
   {
     "id": "Q03",
     "type": "paraphrase",
-    "question": "代理用內建編輯工具把專案檔案改壞了，我想讓磁碟上的檔案回到某則使用者訊息送出前的狀態，保留對話繼續處理。Python SDK 要事先開啟哪個選項，還原時再呼叫哪個方法？",
+    "question": "使用 Claude Agent SDK 時，代理用內建編輯工具把專案檔案改壞了，我想讓磁碟上的檔案回到某則使用者訊息送出前的狀態，保留對話繼續處理。Python SDK 要事先開啟哪個選項，還原時再呼叫哪個方法？",
     "must_include": [
       "enable_file_checkpointing",
       "rewind_files"
@@ -49,7 +49,7 @@
   {
     "id": "Q04",
     "type": "paraphrase",
-    "question": "代理工作有正常跑完，但監控收集端一直收不到執行紀錄。我想讓原本被靜默吞掉的匯出錯誤寫到標準錯誤輸出，要把哪個環境變數設為 1？",
+    "question": "Claude Agent SDK 的代理工作有正常跑完，但監控收集端一直收不到執行紀錄。我想讓原本被靜默吞掉的匯出錯誤寫到標準錯誤輸出，要把哪個環境變數設為 1？",
     "must_include": [
       "CLAUDE_CODE_OTEL_DIAG_STDERR"
     ],
@@ -116,7 +116,7 @@
   {
     "id": "Q08",
     "type": "multi_doc",
-    "question": "我用 TypeScript 同時設定 tool search 與 Zod 結構化輸出：要等可延後載入的工具定義占上下文 5% 才啟用搜尋，ENABLE_TOOL_SEARCH 要填哪個值？把 Zod schema 轉成 SDK 支援的 JSON Schema 時，target 又應填哪個值？",
+    "question": "我用 Claude Agent SDK 的 TypeScript 介面同時設定 tool search 與 Zod 結構化輸出：要等可延後載入的工具定義占上下文 5% 才啟用搜尋，ENABLE_TOOL_SEARCH 要填哪個值？把 Zod schema 轉成 SDK 支援的 JSON Schema 時，target 又應填哪個值？",
     "must_include": [
       "auto:5",
       "draft-7"
@@ -152,6 +152,468 @@
     "probe_terms": [
       "Agent SDK",
       "P95"
+    ],
+    "answerable": false
+  },
+  {
+    "id": "Q11",
+    "type": "lookup",
+    "question": "Deep Agents 的 Python CodeInterpreterMiddleware 中，限制單次 eval 可呼叫多少次外部工具，以及限制跨輪狀態快照大小，分別要設定哪兩個參數？",
+    "must_include": [
+      "max_ptc_calls",
+      "max_snapshot_bytes"
+    ],
+    "must_not_include": [],
+    "gold_docs": [
+      "deepagents/interpreters"
+    ],
+    "probe_terms": [],
+    "answerable": true
+  },
+  {
+    "id": "Q12",
+    "type": "lookup",
+    "question": "Deep Agents Code 的單次 MCP 工具呼叫如果需要延長執行時間，要用哪個環境變數覆寫 config.toml 中的工具逾時設定？",
+    "must_include": [
+      "DEEPAGENTS_CODE_MCP_TOOL_TIMEOUT"
+    ],
+    "must_not_include": [],
+    "gold_docs": [
+      "deepagents/code/mcp-tools",
+      "deepagents/code/config-file",
+      "deepagents/code/configuration"
+    ],
+    "probe_terms": [],
+    "answerable": true
+  },
+  {
+    "id": "Q13",
+    "type": "paraphrase",
+    "question": "Deep Agents 的長任務剛完成一個階段，我想讓代理自己把較早的對話濃縮後再繼續，而不是等上下文快滿才自動處理。Python 端要用哪個函式建立中介層？代理之後會多出哪個可主動呼叫的工具？",
+    "must_include": [
+      "create_summarization_tool_middleware",
+      "compact_conversation"
+    ],
+    "must_not_include": [],
+    "gold_docs": [
+      "deepagents/context-engineering"
+    ],
+    "probe_terms": [],
+    "answerable": true
+  },
+  {
+    "id": "Q14",
+    "type": "paraphrase",
+    "question": "我用 Python Deep Agents 做唯讀代理，有些內建的改檔與執行指令功能完全不會用到，也不想讓它們的定義每一輪都占模型輸入空間。應透過哪個設定欄位，依名稱把這些工具移出模型可見的列表？",
+    "must_include": [
+      "excluded_tools"
+    ],
+    "must_not_include": [],
+    "gold_docs": [
+      "deepagents/overview",
+      "deepagents/profiles",
+      "deepagents/context-engineering"
+    ],
+    "probe_terms": [],
+    "answerable": true
+  },
+  {
+    "id": "Q15",
+    "type": "version",
+    "question": "Python Deep Agents 從 0.5.0 起不建議再用接收 runtime 的工廠函式建立後端。若原本只需要 StateBackend，create_deep_agent 的 backend 參數現在應怎麼寫？後端改為自行取得執行環境時，文件列出的 runtime helper 函式名稱是什麼？請只列目前的寫法。",
+    "must_include": [
+      "StateBackend()",
+      "get_runtime"
+    ],
+    "must_not_include": [
+      "backend=lambda rt: StateBackend(rt)"
+    ],
+    "gold_docs": [
+      "deepagents/backends"
+    ],
+    "probe_terms": [],
+    "answerable": true
+  },
+  {
+    "id": "Q16",
+    "type": "version",
+    "question": "Deep Agents Code 的 config.toml 已經不採用舊的扁平清單來記住專案 MCP server 授權。現在 [mcp] 底下儲存已核准 server 記錄的欄位名稱是什麼？請只列目前使用的名稱。",
+    "must_include": [
+      "enabled_project_server_approvals"
+    ],
+    "must_not_include": [
+      "enabled_project_servers"
+    ],
+    "gold_docs": [
+      "deepagents/code/mcp-tools",
+      "deepagents/code/configuration"
+    ],
+    "probe_terms": [],
+    "answerable": true
+  },
+  {
+    "id": "Q17",
+    "type": "multi_doc",
+    "question": "我們要把兩種 Deep Agents 擴充各自打包成 Python 套件：一種供 dcode 載入 extension，另一種在匯入 SDK 時註冊 harness profile。這兩種用途分別要登錄到哪個 Python entry-point group？",
+    "must_include": [
+      "dcode.extensions",
+      "deepagents.harness_profiles"
+    ],
+    "must_not_include": [],
+    "gold_docs": [
+      "deepagents/code/extensions",
+      "deepagents/profiles"
+    ],
+    "probe_terms": [],
+    "answerable": true
+  },
+  {
+    "id": "Q18",
+    "type": "multi_doc",
+    "question": "我在整理團隊的 Deep Agents Code 啟動設定：專案 hooks 的信任決定會記錄在哪個 JSON 檔？另外，主模型供應商選 OpenAI Codex 時，Auto 模式預設使用的分類模型完整名稱是什麼？",
+    "must_include": [
+      "hooks_trust.json",
+      "openai_codex:gpt-5.6-luna"
+    ],
+    "must_not_include": [],
+    "gold_docs": [
+      "deepagents/code/hooks",
+      "deepagents/code/approval-modes"
+    ],
+    "probe_terms": [],
+    "answerable": true
+  },
+  {
+    "id": "Q19",
+    "type": "unanswerable",
+    "question": "我們想把 Deep Agents 部署到 Kubernetes，官方 Helm chart 的 repository URL 與 chart 名稱各是什麼？",
+    "must_include": [],
+    "must_not_include": [],
+    "gold_docs": [],
+    "probe_terms": [
+      "Deep Agents",
+      "Helm chart"
+    ],
+    "answerable": false
+  },
+  {
+    "id": "Q20",
+    "type": "unanswerable",
+    "question": "要把 Deep Agents 納入公司軟體供應鏈盤點，官方發布的 SBOM 要從哪裡下載？採用的是 SPDX 還是 CycloneDX 格式？",
+    "must_include": [],
+    "must_not_include": [],
+    "gold_docs": [],
+    "probe_terms": [
+      "Deep Agents",
+      "SBOM"
+    ],
+    "answerable": false
+  },
+  {
+    "id": "Q21",
+    "type": "lookup",
+    "question": "LangChain 的 TypeScript MCPAdapter 在工具探索階段遇到認證失敗時，最外層會拋哪個錯誤類別？如果 cause 表示必須重新登入、SDK 無法自行恢復，應辨識哪個錯誤類別？",
+    "must_include": [
+      "MCPClientError",
+      "UnauthorizedError"
+    ],
+    "must_not_include": [],
+    "gold_docs": [
+      "langchain/mcp/auth"
+    ],
+    "probe_terms": [],
+    "answerable": true
+  },
+  {
+    "id": "Q22",
+    "type": "lookup",
+    "question": "LangChain 提供的 Vitest 自訂 matcher 中，哪個可以不計順序地檢查 AIMessage 恰好包含指定的全部工具呼叫？若只要檢查至少有一個呼叫符合條件，應使用哪個 matcher？",
+    "must_include": [
+      "toHaveToolCalls",
+      "toContainToolCall"
+    ],
+    "must_not_include": [],
+    "gold_docs": [
+      "langchain/test/integration-testing"
+    ],
+    "probe_terms": [],
+    "answerable": true
+  },
+  {
+    "id": "Q23",
+    "type": "paraphrase",
+    "question": "LangChain 的 Python 代理從工具拿回的文字可能帶有信用卡號。我想在送回模型前自動處理這些敏感資料，應掛上哪個內建中介層，並開啟哪個專門檢查工具結果的選項？",
+    "must_include": [
+      "PIIMiddleware",
+      "apply_to_tool_results"
+    ],
+    "must_not_include": [],
+    "gold_docs": [
+      "langchain/middleware/built-in",
+      "langchain/guardrails"
+    ],
+    "probe_terms": [],
+    "answerable": true
+  },
+  {
+    "id": "Q24",
+    "type": "paraphrase",
+    "question": "我用 LangChain 的 Python 模型介面要求回傳固定欄位，遇到供應商回傳成功但內容其實是拒答。應攔截哪個例外，並從例外的哪個屬性取得原始回覆，才能和一般格式解析失敗分開處理？",
+    "must_include": [
+      "ModelRefusalError",
+      "raw_message"
+    ],
+    "must_not_include": [],
+    "gold_docs": [
+      "langchain/models"
+    ],
+    "probe_terms": [],
+    "answerable": true
+  },
+  {
+    "id": "Q25",
+    "type": "version",
+    "question": "LangChain 的 Python SummarizationMiddleware 過去可以只用前綴文字客製摘要提示，這個參數現在已 deprecated。現在應改用哪個參數傳入完整的摘要提示詞？請只列新參數名稱。",
+    "must_include": [
+      "summary_prompt"
+    ],
+    "must_not_include": [
+      "summary_prefix"
+    ],
+    "gold_docs": [
+      "langchain/middleware/built-in",
+      "deepagents/customization"
+    ],
+    "probe_terms": [],
+    "answerable": true
+  },
+  {
+    "id": "Q26",
+    "type": "version",
+    "question": "TypeScript 專案升到 LangChain v1 後，鏈式流程仍需要 OutputFixingParser 修復格式錯誤的模型輸出。現在應從哪個模組路徑匯入這個類別？請只提供新版匯入路徑。",
+    "must_include": [
+      "@langchain/classic/output_parsers"
+    ],
+    "must_not_include": [
+      "langchain/output_parsers"
+    ],
+    "gold_docs": [
+      "langchain/structured-output"
+    ],
+    "probe_terms": [],
+    "answerable": true
+  },
+  {
+    "id": "Q27",
+    "type": "multi_doc",
+    "question": "LangChain 的 Python 整合測試想把第一次的 HTTP 往返錄下來、往後只重播，pytest 要加哪個錄製模式選項？另外，鏈式流程解析失敗且修正時需要原始提示詞，應改用哪個重試解析器類別？",
+    "must_include": [
+      "--record-mode=once",
+      "RetryOutputParser"
+    ],
+    "must_not_include": [],
+    "gold_docs": [
+      "langchain/test/integration-testing",
+      "langchain/structured-output"
+    ],
+    "probe_terms": [],
+    "answerable": true
+  },
+  {
+    "id": "Q28",
+    "type": "multi_doc",
+    "question": "我在做 LangChain 的 React 聊天介面：使用者連續送出訊息時，要用哪個 hook 讀取待處理佇列？使用者暫時離開頁面時，若希望只斷開前端串流、保留伺服器上正在執行的工作，應呼叫哪個方法？",
+    "must_include": [
+      "useSubmissionQueue",
+      "disconnect"
+    ],
+    "must_not_include": [],
+    "gold_docs": [
+      "langchain/frontend/message-queues",
+      "langchain/frontend/join-rejoin"
+    ],
+    "probe_terms": [],
+    "answerable": true
+  },
+  {
+    "id": "Q29",
+    "type": "unanswerable",
+    "question": "我們想把既有 SAP HANA 的向量資料接到 LangChain。官方整合套件要安裝哪個名稱，建立向量儲存介面時的連線參數與程式碼要怎麼寫？",
+    "must_include": [],
+    "must_not_include": [],
+    "gold_docs": [],
+    "probe_terms": [
+      "LangChain",
+      "SAP HANA"
+    ],
+    "answerable": false
+  },
+  {
+    "id": "Q30",
+    "type": "unanswerable",
+    "question": "公司要讓 LangChain 應用透過 SAML 2.0 與既有身分提供者做單一登入。官方建議的 ACS URL 與 SP Entity ID 格式各是什麼？",
+    "must_include": [],
+    "must_not_include": [],
+    "gold_docs": [],
+    "probe_terms": [
+      "LangChain",
+      "SAML"
+    ],
+    "answerable": false
+  },
+  {
+    "id": "Q31",
+    "type": "lookup",
+    "question": "Python LangGraph 的 TimeoutPolicy 若要排除子工作產生的 token 與回呼，只讓手動心跳刷新閒置計時器，應使用哪個設定選項？node 又應呼叫哪個 runtime 方法送出心跳？",
+    "must_include": [
+      "refresh_on",
+      "runtime.heartbeat"
+    ],
+    "must_not_include": [],
+    "gold_docs": [
+      "langgraph/fault-tolerance"
+    ],
+    "probe_terms": [],
+    "answerable": true
+  },
+  {
+    "id": "Q32",
+    "type": "lookup",
+    "question": "Python LangGraph 的 CachePolicy 要自行決定如何從 node 輸入產生快取鍵，並限制快取存活秒數，分別要填哪兩個參數？",
+    "must_include": [
+      "key_func",
+      "ttl"
+    ],
+    "must_not_include": [],
+    "gold_docs": [
+      "langgraph/graph-api-nodes"
+    ],
+    "probe_terms": [],
+    "answerable": true
+  },
+  {
+    "id": "Q33",
+    "type": "paraphrase",
+    "question": "部署 Python LangGraph 時，我想在收到停止訊號後，先讓目前這一輪已啟動的節點完成、存好可續跑的狀態，再結束整次執行。要先建立哪個控制物件，並呼叫它的哪個方法提出停止要求？",
+    "must_include": [
+      "RunControl",
+      "request_drain"
+    ],
+    "must_not_include": [],
+    "gold_docs": [
+      "langgraph/fault-tolerance",
+      "langgraph/graph-api-nodes"
+    ],
+    "probe_terms": [],
+    "answerable": true
+  },
+  {
+    "id": "Q34",
+    "type": "paraphrase",
+    "question": "我用 LangGraph 把工作分成兩條平行路徑，兩邊卻都回寫同一個沒有合併規則的欄位，執行時因無法決定採哪個值而失敗。這對應哪個錯誤名稱？如果要把兩邊回傳的清單接起來，文件的 Python 範例用哪個標準函式當合併規則？",
+    "must_include": [
+      "INVALID_CONCURRENT_GRAPH_UPDATE",
+      "operator.add"
+    ],
+    "must_not_include": [],
+    "gold_docs": [
+      "langgraph/errors/INVALID_CONCURRENT_GRAPH_UPDATE"
+    ],
+    "probe_terms": [],
+    "answerable": true
+  },
+  {
+    "id": "Q35",
+    "type": "version",
+    "question": "Python LangGraph 改用 v2 invoke 格式後，GraphOutput 的字典式存取已標成 deprecated。假設回傳物件叫 result，現在應用哪兩個屬性分別讀取輸出狀態與等待外部回覆的資訊？請只列新寫法。",
+    "must_include": [
+      "result.value",
+      "result.interrupts"
+    ],
+    "must_not_include": [
+      "result[\"key\"]",
+      "result[\"__interrupt__\"]"
+    ],
+    "gold_docs": [
+      "langgraph/streaming",
+      "langchain/streaming"
+    ],
+    "probe_terms": [],
+    "answerable": true
+  },
+  {
+    "id": "Q36",
+    "type": "version",
+    "question": "我們要整理 TypeScript LangGraph 的舊版 Annotation.Root 狀態定義。官方現在建議新 graph 改用哪個類別？如果其中一個欄位只在執行期間保存連線、不寫入 checkpoint，應搭配哪個欄位類型？請只列目前建議的類別與類型名稱。",
+    "must_include": [
+      "StateSchema",
+      "UntrackedValue"
+    ],
+    "must_not_include": [
+      "Annotation.Root"
+    ],
+    "gold_docs": [
+      "langgraph/graph-api",
+      "langgraph/graph-api-state"
+    ],
+    "probe_terms": [],
+    "answerable": true
+  },
+  {
+    "id": "Q37",
+    "type": "multi_doc",
+    "question": "我在準備 LangGraph 的本機除錯與狀態加密：Python 端用 Pyppeteer 在本機產生流程圖 PNG 時，draw_method 要指定哪個 enum 值？checkpointer 要透過環境變數讀取 AES 金鑰時，變數名稱是什麼？",
+    "must_include": [
+      "MermaidDrawMethod.PYPPETEER",
+      "LANGGRAPH_AES_KEY"
+    ],
+    "must_not_include": [],
+    "gold_docs": [
+      "langgraph/graph-api-visualize",
+      "langgraph/checkpointers"
+    ],
+    "probe_terms": [],
+    "answerable": true
+  },
+  {
+    "id": "Q38",
+    "type": "multi_doc",
+    "question": "我在調校 Python LangGraph 的增量狀態儲存：DeltaChannel 的哪個參數能每隔 K 步保存完整快照，限制還原時要回讀的深度？自訂 checkpointer 若想一次查回祖先鏈的寫入資料、改善逐筆回查效能，應覆寫哪個同步方法？",
+    "must_include": [
+      "snapshot_frequency",
+      "get_delta_channel_history"
+    ],
+    "must_not_include": [],
+    "gold_docs": [
+      "langgraph/pregel",
+      "langgraph/checkpointers"
+    ],
+    "probe_terms": [],
+    "answerable": true
+  },
+  {
+    "id": "Q39",
+    "type": "unanswerable",
+    "question": "我們的資料庫是 CockroachDB，想替 Python LangGraph 接上官方專用的 checkpointer。這個套件叫什麼名稱，最低支援的 CockroachDB server 版本是多少？",
+    "must_include": [],
+    "must_not_include": [],
+    "gold_docs": [],
+    "probe_terms": [
+      "LangGraph",
+      "CockroachDB"
+    ],
+    "answerable": false
+  },
+  {
+    "id": "Q40",
+    "type": "unanswerable",
+    "question": "我們要替採用 PostgreSQL checkpointer 的 LangGraph 系統規劃跨區災難復原。官方承諾的資料復原點目標（RPO）與復原時間目標（RTO）各是多少，有對應的複寫設定範例嗎？",
+    "must_include": [],
+    "must_not_include": [],
+    "gold_docs": [],
+    "probe_terms": [
+      "LangGraph",
+      "recovery point objective"
     ],
     "answerable": false
   }

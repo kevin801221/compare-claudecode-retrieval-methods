@@ -1,0 +1,456 @@
+{
+ "rows": [
+  {
+   "qid": "Q01",
+   "type_label": "直接查找",
+   "question": "Claude Agent SDK 的 TypeScript 介面若要透過 reloadPlugins() 在同一個 session 追加本機 plugin 目錄，應使用哪個選項？這個選項最低需要哪個 Agent SDK 版本？",
+   "gold": "addPlugins、0.3.301",
+   "closed": "答錯",
+   "A-messy": "3/3",
+   "B-organized": "3/3",
+   "C-indexed": "3/3",
+   "D-wiki": "3/3"
+  },
+  {
+   "qid": "Q02",
+   "type_label": "直接查找",
+   "question": "Agent SDK 連 MCP server 時，建立連線的等待上限和工具呼叫的執行時間上限，要分別用哪兩個環境變數調整？",
+   "gold": "MCP_TIMEOUT、MCP_TOOL_TIMEOUT",
+   "closed": "答對",
+   "A-messy": "3/3",
+   "B-organized": "3/3",
+   "C-indexed": "3/3",
+   "D-wiki": "3/3"
+  },
+  {
+   "qid": "Q03",
+   "type_label": "換句話說",
+   "question": "使用 Claude Agent SDK 時，代理用內建編輯工具把專案檔案改壞了，我想讓磁碟上的檔案回到某則使用者訊息送出前的狀態，保留對話繼續處理。Python SDK 要事先開啟哪個選項，還原時再呼叫哪個方法？",
+   "gold": "enable_file_checkpointing、rewind_files",
+   "closed": "答對",
+   "A-messy": "3/3",
+   "B-organized": "3/3",
+   "C-indexed": "3/3",
+   "D-wiki": "3/3"
+  },
+  {
+   "qid": "Q04",
+   "type_label": "換句話說",
+   "question": "Claude Agent SDK 的代理工作有正常跑完，但監控收集端一直收不到執行紀錄。我想讓原本被靜默吞掉的匯出錯誤寫到標準錯誤輸出，要把哪個環境變數設為 1？",
+   "gold": "CLAUDE_CODE_OTEL_DIAG_STDERR",
+   "closed": "答錯",
+   "A-messy": "3/3",
+   "B-organized": "3/3",
+   "C-indexed": "2/3",
+   "D-wiki": "3/3"
+  },
+  {
+   "qid": "Q05",
+   "type_label": "新舊版本",
+   "question": "我們的 TypeScript 專案還在用 Claude Code SDK，package.json 的版本範圍是 ^0.0.42。照遷移指南的 package.json 範例，遷移後的套件名稱與範例版本範圍應填什麼？請只列新設定。",
+   "gold": "@anthropic-ai/claude-agent-sdk、0.3.0",
+   "closed": "答錯",
+   "A-messy": "3/3",
+   "B-organized": "3/3",
+   "C-indexed": "3/3",
+   "D-wiki": "3/3"
+  },
+  {
+   "qid": "Q06",
+   "type_label": "新舊版本",
+   "question": "TypeScript Agent SDK 升到 0.3.142 後，原本 V2 的建立與恢復 session 介面被移除了。現在多輪對話要改呼叫哪個 API、傳入哪個輸入型別？請只列替代寫法。",
+   "gold": "query、AsyncIterable<SDKUserMessage>",
+   "closed": "答錯",
+   "A-messy": "3/3",
+   "B-organized": "3/3",
+   "C-indexed": "3/3",
+   "D-wiki": "3/3"
+  },
+  {
+   "qid": "Q07",
+   "type_label": "跨文件",
+   "question": "我在驗收 Python Agent SDK 的自訂會話儲存與分散式追蹤：官方用來檢驗儲存介接器是否符合行為契約的測試函式叫什麼？啟用追蹤傳遞後，代理透過 Bash 啟動的程式若自行產生 OpenTelemetry spans，這些 spans 會掛在哪個名稱的父 span 底下？",
+   "gold": "run_session_store_conformance、claude_code.tool.execution",
+   "closed": "答錯",
+   "A-messy": "3/3",
+   "B-organized": "3/3",
+   "C-indexed": "3/3",
+   "D-wiki": "3/3"
+  },
+  {
+   "qid": "Q08",
+   "type_label": "跨文件",
+   "question": "我用 Claude Agent SDK 的 TypeScript 介面同時設定 tool search 與 Zod 結構化輸出：要等可延後載入的工具定義占上下文 5% 才啟用搜尋，ENABLE_TOOL_SEARCH 要填哪個值？把 Zod schema 轉成 SDK 支援的 JSON Schema 時，target 又應填哪個值？",
+   "gold": "auto:5、draft-7",
+   "closed": "答錯",
+   "A-messy": "3/3",
+   "B-organized": "3/3",
+   "C-indexed": "3/3",
+   "D-wiki": "3/3"
+  },
+  {
+   "qid": "Q09",
+   "type_label": "題庫裡沒有",
+   "question": "我們的後端是 Ruby on Rails，想直接使用 Claude Agent SDK 的官方 Ruby 套件。RubyGems 上的套件名稱是什麼，初始化 client 的程式碼要怎麼寫？",
+   "gold": "（文件中沒有，應回答找不到）",
+   "closed": "—",
+   "A-messy": "3/3",
+   "B-organized": "3/3",
+   "C-indexed": "3/3",
+   "D-wiki": "3/3"
+  },
+  {
+   "qid": "Q10",
+   "type_label": "題庫裡沒有",
+   "question": "容量規劃想引用官方 benchmark：Claude Agent SDK 在單機同時執行 100 個 session 時，P95 首次回應延遲是多少毫秒？測試使用的 CPU 與記憶體規格是什麼？",
+   "gold": "（文件中沒有，應回答找不到）",
+   "closed": "—",
+   "A-messy": "3/3",
+   "B-organized": "3/3",
+   "C-indexed": "3/3",
+   "D-wiki": "3/3"
+  },
+  {
+   "qid": "Q11",
+   "type_label": "直接查找",
+   "question": "Deep Agents 的 Python CodeInterpreterMiddleware 中，限制單次 eval 可呼叫多少次外部工具，以及限制跨輪狀態快照大小，分別要設定哪兩個參數？",
+   "gold": "max_ptc_calls、max_snapshot_bytes",
+   "closed": "答錯",
+   "A-messy": "3/3",
+   "B-organized": "3/3",
+   "C-indexed": "3/3",
+   "D-wiki": "3/3"
+  },
+  {
+   "qid": "Q12",
+   "type_label": "直接查找",
+   "question": "Deep Agents Code 的單次 MCP 工具呼叫如果需要延長執行時間，要用哪個環境變數覆寫 config.toml 中的工具逾時設定？",
+   "gold": "DEEPAGENTS_CODE_MCP_TOOL_TIMEOUT",
+   "closed": "答錯",
+   "A-messy": "3/3",
+   "B-organized": "3/3",
+   "C-indexed": "3/3",
+   "D-wiki": "3/3"
+  },
+  {
+   "qid": "Q13",
+   "type_label": "換句話說",
+   "question": "Deep Agents 的長任務剛完成一個階段，我想讓代理自己把較早的對話濃縮後再繼續，而不是等上下文快滿才自動處理。Python 端要用哪個函式建立中介層？代理之後會多出哪個可主動呼叫的工具？",
+   "gold": "create_summarization_tool_middleware、compact_conversation",
+   "closed": "答對",
+   "A-messy": "3/3",
+   "B-organized": "3/3",
+   "C-indexed": "3/3",
+   "D-wiki": "3/3"
+  },
+  {
+   "qid": "Q14",
+   "type_label": "換句話說",
+   "question": "我用 Python Deep Agents 做唯讀代理，有些內建的改檔與執行指令功能完全不會用到，也不想讓它們的定義每一輪都占模型輸入空間。應透過哪個設定欄位，依名稱把這些工具移出模型可見的列表？",
+   "gold": "excluded_tools",
+   "closed": "答錯",
+   "A-messy": "3/3",
+   "B-organized": "3/3",
+   "C-indexed": "3/3",
+   "D-wiki": "3/3"
+  },
+  {
+   "qid": "Q15",
+   "type_label": "新舊版本",
+   "question": "Python Deep Agents 從 0.5.0 起不建議再用接收 runtime 的工廠函式建立後端。若原本只需要 StateBackend，create_deep_agent 的 backend 參數現在應怎麼寫？後端改為自行取得執行環境時，文件列出的 runtime helper 函式名稱是什麼？請只列目前的寫法。",
+   "gold": "StateBackend()、get_runtime",
+   "closed": "答錯",
+   "A-messy": "3/3",
+   "B-organized": "3/3",
+   "C-indexed": "3/3",
+   "D-wiki": "3/3"
+  },
+  {
+   "qid": "Q16",
+   "type_label": "新舊版本",
+   "question": "Deep Agents Code 的 config.toml 已經不採用舊的扁平清單來記住專案 MCP server 授權。現在 [mcp] 底下儲存已核准 server 記錄的欄位名稱是什麼？請只列目前使用的名稱。",
+   "gold": "enabled_project_server_approvals",
+   "closed": "答錯",
+   "A-messy": "2/2",
+   "B-organized": "3/3",
+   "C-indexed": "3/3",
+   "D-wiki": "3/3"
+  },
+  {
+   "qid": "Q17",
+   "type_label": "跨文件",
+   "question": "我們要把兩種 Deep Agents 擴充各自打包成 Python 套件：一種供 dcode 載入 extension，另一種在匯入 SDK 時註冊 harness profile。這兩種用途分別要登錄到哪個 Python entry-point group？",
+   "gold": "dcode.extensions、deepagents.harness_profiles",
+   "closed": "答錯",
+   "A-messy": "3/3",
+   "B-organized": "3/3",
+   "C-indexed": "3/3",
+   "D-wiki": "3/3"
+  },
+  {
+   "qid": "Q18",
+   "type_label": "跨文件",
+   "question": "我在整理團隊的 Deep Agents Code 啟動設定：專案 hooks 的信任決定會記錄在哪個 JSON 檔？另外，主模型供應商選 OpenAI Codex 時，Auto 模式預設使用的分類模型完整名稱是什麼？",
+   "gold": "hooks_trust.json、openai_codex:gpt-5.6-luna",
+   "closed": "答錯",
+   "A-messy": "3/3",
+   "B-organized": "3/3",
+   "C-indexed": "3/3",
+   "D-wiki": "3/3"
+  },
+  {
+   "qid": "Q19",
+   "type_label": "題庫裡沒有",
+   "question": "我們想把 Deep Agents 部署到 Kubernetes，官方 Helm chart 的 repository URL 與 chart 名稱各是什麼？",
+   "gold": "（文件中沒有，應回答找不到）",
+   "closed": "—",
+   "A-messy": "3/3",
+   "B-organized": "3/3",
+   "C-indexed": "3/3",
+   "D-wiki": "3/3"
+  },
+  {
+   "qid": "Q20",
+   "type_label": "題庫裡沒有",
+   "question": "要把 Deep Agents 納入公司軟體供應鏈盤點，官方發布的 SBOM 要從哪裡下載？採用的是 SPDX 還是 CycloneDX 格式？",
+   "gold": "（文件中沒有，應回答找不到）",
+   "closed": "—",
+   "A-messy": "3/3",
+   "B-organized": "3/3",
+   "C-indexed": "3/3",
+   "D-wiki": "3/3"
+  },
+  {
+   "qid": "Q21",
+   "type_label": "直接查找",
+   "question": "LangChain 的 TypeScript MCPAdapter 在工具探索階段遇到認證失敗時，最外層會拋哪個錯誤類別？如果 cause 表示必須重新登入、SDK 無法自行恢復，應辨識哪個錯誤類別？",
+   "gold": "MCPClientError、UnauthorizedError",
+   "closed": "答錯",
+   "A-messy": "3/3",
+   "B-organized": "3/3",
+   "C-indexed": "3/3",
+   "D-wiki": "3/3"
+  },
+  {
+   "qid": "Q22",
+   "type_label": "直接查找",
+   "question": "LangChain 提供的 Vitest 自訂 matcher 中，哪個可以不計順序地檢查 AIMessage 恰好包含指定的全部工具呼叫？若只要檢查至少有一個呼叫符合條件，應使用哪個 matcher？",
+   "gold": "toHaveToolCalls、toContainToolCall",
+   "closed": "答錯",
+   "A-messy": "3/3",
+   "B-organized": "3/3",
+   "C-indexed": "2/2",
+   "D-wiki": "3/3"
+  },
+  {
+   "qid": "Q23",
+   "type_label": "換句話說",
+   "question": "LangChain 的 Python 代理從工具拿回的文字可能帶有信用卡號。我想在送回模型前自動處理這些敏感資料，應掛上哪個內建中介層，並開啟哪個專門檢查工具結果的選項？",
+   "gold": "PIIMiddleware、apply_to_tool_results",
+   "closed": "答對",
+   "A-messy": "3/3",
+   "B-organized": "3/3",
+   "C-indexed": "3/3",
+   "D-wiki": "3/3"
+  },
+  {
+   "qid": "Q24",
+   "type_label": "換句話說",
+   "question": "我用 LangChain 的 Python 模型介面要求回傳固定欄位，遇到供應商回傳成功但內容其實是拒答。應攔截哪個例外，並從例外的哪個屬性取得原始回覆，才能和一般格式解析失敗分開處理？",
+   "gold": "ModelRefusalError、raw_message",
+   "closed": "答錯",
+   "A-messy": "3/3",
+   "B-organized": "3/3",
+   "C-indexed": "3/3",
+   "D-wiki": "3/3"
+  },
+  {
+   "qid": "Q25",
+   "type_label": "新舊版本",
+   "question": "LangChain 的 Python SummarizationMiddleware 過去可以只用前綴文字客製摘要提示，這個參數現在已 deprecated。現在應改用哪個參數傳入完整的摘要提示詞？請只列新參數名稱。",
+   "gold": "summary_prompt",
+   "closed": "答對",
+   "A-messy": "3/3",
+   "B-organized": "3/3",
+   "C-indexed": "3/3",
+   "D-wiki": "3/3"
+  },
+  {
+   "qid": "Q26",
+   "type_label": "新舊版本",
+   "question": "TypeScript 專案升到 LangChain v1 後，鏈式流程仍需要 OutputFixingParser 修復格式錯誤的模型輸出。現在應從哪個模組路徑匯入這個類別？請只提供新版匯入路徑。",
+   "gold": "@langchain/classic/output_parsers",
+   "closed": "答對",
+   "A-messy": "3/3",
+   "B-organized": "3/3",
+   "C-indexed": "3/3",
+   "D-wiki": "3/3"
+  },
+  {
+   "qid": "Q27",
+   "type_label": "跨文件",
+   "question": "LangChain 的 Python 整合測試想把第一次的 HTTP 往返錄下來、往後只重播，pytest 要加哪個錄製模式選項？另外，鏈式流程解析失敗且修正時需要原始提示詞，應改用哪個重試解析器類別？",
+   "gold": "--record-mode=once、RetryOutputParser",
+   "closed": "答錯",
+   "A-messy": "3/3",
+   "B-organized": "3/3",
+   "C-indexed": "3/3",
+   "D-wiki": "3/3"
+  },
+  {
+   "qid": "Q28",
+   "type_label": "跨文件",
+   "question": "我在做 LangChain 的 React 聊天介面：使用者連續送出訊息時，要用哪個 hook 讀取待處理佇列？使用者暫時離開頁面時，若希望只斷開前端串流、保留伺服器上正在執行的工作，應呼叫哪個方法？",
+   "gold": "useSubmissionQueue、disconnect",
+   "closed": "答錯",
+   "A-messy": "3/3",
+   "B-organized": "3/3",
+   "C-indexed": "3/3",
+   "D-wiki": "3/3"
+  },
+  {
+   "qid": "Q29",
+   "type_label": "題庫裡沒有",
+   "question": "我們想把既有 SAP HANA 的向量資料接到 LangChain。官方整合套件要安裝哪個名稱，建立向量儲存介面時的連線參數與程式碼要怎麼寫？",
+   "gold": "（文件中沒有，應回答找不到）",
+   "closed": "—",
+   "A-messy": "3/3",
+   "B-organized": "3/3",
+   "C-indexed": "3/3",
+   "D-wiki": "3/3"
+  },
+  {
+   "qid": "Q30",
+   "type_label": "題庫裡沒有",
+   "question": "公司要讓 LangChain 應用透過 SAML 2.0 與既有身分提供者做單一登入。官方建議的 ACS URL 與 SP Entity ID 格式各是什麼？",
+   "gold": "（文件中沒有，應回答找不到）",
+   "closed": "—",
+   "A-messy": "3/3",
+   "B-organized": "3/3",
+   "C-indexed": "3/3",
+   "D-wiki": "3/3"
+  },
+  {
+   "qid": "Q31",
+   "type_label": "直接查找",
+   "question": "Python LangGraph 的 TimeoutPolicy 若要排除子工作產生的 token 與回呼，只讓手動心跳刷新閒置計時器，應使用哪個設定選項？node 又應呼叫哪個 runtime 方法送出心跳？",
+   "gold": "refresh_on、runtime.heartbeat",
+   "closed": "答錯",
+   "A-messy": "3/3",
+   "B-organized": "3/3",
+   "C-indexed": "3/3",
+   "D-wiki": "3/3"
+  },
+  {
+   "qid": "Q32",
+   "type_label": "直接查找",
+   "question": "Python LangGraph 的 CachePolicy 要自行決定如何從 node 輸入產生快取鍵，並限制快取存活秒數，分別要填哪兩個參數？",
+   "gold": "key_func、ttl",
+   "closed": "答對",
+   "A-messy": "3/3",
+   "B-organized": "3/3",
+   "C-indexed": "3/3",
+   "D-wiki": "3/3"
+  },
+  {
+   "qid": "Q33",
+   "type_label": "換句話說",
+   "question": "部署 Python LangGraph 時，我想在收到停止訊號後，先讓目前這一輪已啟動的節點完成、存好可續跑的狀態，再結束整次執行。要先建立哪個控制物件，並呼叫它的哪個方法提出停止要求？",
+   "gold": "RunControl、request_drain",
+   "closed": "答錯",
+   "A-messy": "3/3",
+   "B-organized": "3/3",
+   "C-indexed": "3/3",
+   "D-wiki": "3/3"
+  },
+  {
+   "qid": "Q34",
+   "type_label": "換句話說",
+   "question": "我用 LangGraph 把工作分成兩條平行路徑，兩邊卻都回寫同一個沒有合併規則的欄位，執行時因無法決定採哪個值而失敗。這對應哪個錯誤名稱？如果要把兩邊回傳的清單接起來，文件的 Python 範例用哪個標準函式當合併規則？",
+   "gold": "INVALID_CONCURRENT_GRAPH_UPDATE、operator.add",
+   "closed": "答錯",
+   "A-messy": "3/3",
+   "B-organized": "3/3",
+   "C-indexed": "3/3",
+   "D-wiki": "3/3"
+  },
+  {
+   "qid": "Q35",
+   "type_label": "新舊版本",
+   "question": "Python LangGraph 改用 v2 invoke 格式後，GraphOutput 的字典式存取已標成 deprecated。假設回傳物件叫 result，現在應用哪兩個屬性分別讀取輸出狀態與等待外部回覆的資訊？請只列新寫法。",
+   "gold": "result.value、result.interrupts",
+   "closed": "答對",
+   "A-messy": "3/3",
+   "B-organized": "3/3",
+   "C-indexed": "3/3",
+   "D-wiki": "3/3"
+  },
+  {
+   "qid": "Q36",
+   "type_label": "新舊版本",
+   "question": "我們要整理 TypeScript LangGraph 的舊版 Annotation.Root 狀態定義。官方現在建議新 graph 改用哪個類別？如果其中一個欄位只在執行期間保存連線、不寫入 checkpoint，應搭配哪個欄位類型？請只列目前建議的類別與類型名稱。",
+   "gold": "StateSchema、UntrackedValue",
+   "closed": "答錯",
+   "A-messy": "3/3",
+   "B-organized": "3/3",
+   "C-indexed": "3/3",
+   "D-wiki": "3/3"
+  },
+  {
+   "qid": "Q37",
+   "type_label": "跨文件",
+   "question": "我在準備 LangGraph 的本機除錯與狀態加密：Python 端用 Pyppeteer 在本機產生流程圖 PNG 時，draw_method 要指定哪個 enum 值？checkpointer 要透過環境變數讀取 AES 金鑰時，變數名稱是什麼？",
+   "gold": "MermaidDrawMethod.PYPPETEER、LANGGRAPH_AES_KEY",
+   "closed": "答對",
+   "A-messy": "3/3",
+   "B-organized": "3/3",
+   "C-indexed": "3/3",
+   "D-wiki": "3/3"
+  },
+  {
+   "qid": "Q38",
+   "type_label": "跨文件",
+   "question": "我在調校 Python LangGraph 的增量狀態儲存：DeltaChannel 的哪個參數能每隔 K 步保存完整快照，限制還原時要回讀的深度？自訂 checkpointer 若想一次查回祖先鏈的寫入資料、改善逐筆回查效能，應覆寫哪個同步方法？",
+   "gold": "snapshot_frequency、get_delta_channel_history",
+   "closed": "答錯",
+   "A-messy": "3/3",
+   "B-organized": "3/3",
+   "C-indexed": "3/3",
+   "D-wiki": "3/3"
+  },
+  {
+   "qid": "Q39",
+   "type_label": "題庫裡沒有",
+   "question": "我們的資料庫是 CockroachDB，想替 Python LangGraph 接上官方專用的 checkpointer。這個套件叫什麼名稱，最低支援的 CockroachDB server 版本是多少？",
+   "gold": "（文件中沒有，應回答找不到）",
+   "closed": "—",
+   "A-messy": "3/3",
+   "B-organized": "3/3",
+   "C-indexed": "3/3",
+   "D-wiki": "3/3"
+  },
+  {
+   "qid": "Q40",
+   "type_label": "題庫裡沒有",
+   "question": "我們要替採用 PostgreSQL checkpointer 的 LangGraph 系統規劃跨區災難復原。官方承諾的資料復原點目標（RPO）與復原時間目標（RTO）各是多少，有對應的複寫設定範例嗎？",
+   "gold": "（文件中沒有，應回答找不到）",
+   "closed": "—",
+   "A-messy": "3/3",
+   "B-organized": "3/3",
+   "C-indexed": "3/3",
+   "D-wiki": "3/3"
+  }
+ ],
+ "meta": [
+  {
+   "label": "export_dashboard.py",
+   "value": "\"\"\"匯出 Retrieval Lab 網頁用的資料集到 results/dash/*.json。每個檔案是 {rows, meta}，meta 附上這支程式本身。\n用法：uv run python scripts/export_dashboard.py\"\"\"\nfrom __future__ import annotations\n\nimport json\nfrom collections import Counter\nfrom pathlib import Path\nfrom statistics import mean, median\n\nfrom lab.common import (CLOSED, COND_LABELS, CONDS, INDEX_BUDGET, MAPPING, QTYPE_LABELS, RESULTS, RUNS, WORLD, load_json,\n                        load_world, read_rows, stage_root, world_id)\nfrom lab.report import aggregate, closed_rows_scored, memorized_qids, scored_rows\nfrom lab.score import answer_correct, score\nfrom lab.trace import parse_stream, relpath, touched_files\n\nMODEL, EFFORT = \"haiku\", \"medium\"\nOUT = RESULTS / \"dash\"\nCODE = Path(__file__).read_text(encoding=\"utf-8\")\nENTRY = {\"INDEX.md\", \"wiki/index.md\"}\n# 入口檔截斷：2026-11-14 用 Read 工具實測（設計文件第 15 節），瘦身前後各讀一次，記錄第一次 Read 看到的行數\nENTRY_FILES = [\n    {\"cond\": \"C-indexed\", \"label\": \"C 索引\", \"file\": \"INDEX.md\", \"total_lines\": 218, \"visible_before\": 141,\n     \"visible_after\": 218, \"chars_before\": 53349, \"hidden_before\": \"langchain 後段 32 筆、langgraph 全部 44 筆\"},\n    {\"cond\": \"D-wiki\", \"label\": \"D wiki\", \"file\": \"wiki/index.md\", \"total_lines\": 100, \"visible_before\": 84,\n     \"visible_after\": 100, \"chars_before\": 37661, \"hidden_before\": \"versions、comparisons 兩整類\"},\n]\n\n\ndef pct(v: float | None) -> float | None:\n    return None if v is None else round(v * 100, 1)\n\n\ndef write(name: str, rows: list[dict], inputs: str, note: str | None = None) -> None:\n    meta = [{\"label\": \"export_dashboard.py\", \"value\": CODE, \"type\": \"code\", \"lang\": \"python\"},\n            {\"label\": \"輸入\", \"value\": inputs}] + ([{\"label\": \"說明\", \"value\": note}] if note else [])\n    (OUT / f\"{name}.json\").write_text(json.dumps({\"rows\": rows, \"meta\": meta}, ensure_ascii=False, indent=1),\n                                      encoding=\"utf-8\")\n\n\ndef first_gold(row: dict, q: dict, paths: dict[str, str]) -> tuple[str, int | None]:\n    \"\"\"第一次碰到正解文件的是哪一步、靠什麼找到。回傳 (分類, 第幾次工具呼叫)。\"\"\"\n    cond = row[\"cond\"]\n    raw = (RUNS / row[\"world_id\"] / f\"{MODEL}-{EFFORT}\" / f\"r{row['round']}\" / cond / f\"{row['qid']}.jsonl\")\n    calls = parse_stream(raw.read_text(encoding=\"utf-8\"))[\"calls\"]\n    root = stage_root() / cond\n    roots, known = [str(root), str(root.resolve())], set(paths.values())\n    gold = {paths[d] for d in q[\"gold_docs\"]}\n    seen = {\"grep\": \"\", \"entry\": \"\"}   # 之前的工具輸出：Grep/Glob 的、入口檔與 wiki 頁的\n\n    def led_by(path: str) -> str:\n        by_grep, by_entry = path in seen[\"grep\"], path in seen[\"entry\"]\n        return \"兩者都列過\" if by_grep and by_entry else \"入口檔／wiki 帶路\" if by_entry \\\n            else \"Grep 結果帶路\" if by_grep else \"其他\"\n\n    for i, c in enumerate(calls, 1):\n        read, grep = touched_files([c], roots, known)\n        if hit := gold & set(grep):\n            target = str(c[\"input\"].get(\"path\", \"\") or \".\").rstrip(\"/\")\n            target = \".\" if target in [x.rstrip(\"/\") for x in roots] else relpath(target, roots).rstrip(\"/\") or \".\"\n            if target in known:\n                return led_by(target), i\n            return (\"Grep 搜全部\" if target in (\".\", \"docs\") else \"Grep 限定資料夾\"), i\n        if hit := gold & set(read):\n            return led_by(next(iter(hit))), i\n        if c[\"name\"] in (\"Grep\", \"Glob\"):\n            seen[\"grep\"] += c[\"text\"]\n        elif c[\"name\"] == \"Read\" and (p := relpath(str(c[\"input\"].get(\"file_path\", \"\")), roots)) \\\n                and (p in ENTRY or p.startswith(\"wiki/\")):\n            seen[\"entry\"] += c[\"text\"]\n    return \"沒碰到正解\", None\n\n\ndef main() -> None:\n    OUT.mkdir(parents=True, exist_ok=True)\n    world, maps, wid = load_world(), load_json(MAPPING), world_id()\n    questions = {q[\"id\"]: q for q in world[\"questions\"]}\n    rows = [r for r in read_rows() if r[\"world_id\"] == wid and r[\"model\"] == MODEL and r[\"effort\"] == EFFORT]\n    ok = [r for r in rows if r[\"cond\"] in CONDS and r[\"status\"] == \"ok\"]\n    closed = closed_rows_scored([r for r in rows if r[\"cond\"] == CLOSED and r[\"status\"] == \"ok\"], questions)\n    memorized = memorized_qids(questions, closed) or set()\n    scored = scored_rows(ok, questions, maps)\n    agg = aggregate(scored)\n    inputs = \"results/results.jsonl、runs/（原始紀錄）、world/questions.json、build/mapping.json\"\n\n    paths_by: dict[str, Counter] = {c: Counter() for c in CONDS}\n    steps: dict[str, list[int]] = {c: [] for c in CONDS}\n    for r in ok:\n        q = questions[r[\"qid\"]]\n        if q[\"answerable\"]:\n            how, step = first_gold(r, q, maps[r[\"cond\"]])\n            paths_by[r[\"cond\"]][how] += 1\n            if step:\n                steps[r[\"cond\"]].append(step)\n\n    summary = []\n    for c in CONDS:\n        s, rr = agg[\"summary\"][c], [r for r in scored if r[\"cond\"] == c]\n        summary.append({\"cond\": c, \"label\": COND_LABELS[c], \"answers\": len(rr),\n                        \"correct_pct\": pct(s[\"correct\"][\"mean\"]), \"correct_min_pct\": pct(s[\"correct\"][\"min\"]),\n                        \"correct_max_pct\": pct(s[\"correct\"][\"max\"]), \"hallucinated_pct\": pct(s[\"hallucinated\"][\"mean\"]),\n                        \"retrieved_pct\": pct(s[\"retrieved\"][\"mean\"]), \"citation_pct\": pct(s[\"citation_hit\"][\"mean\"]),\n                        \"tool_calls\": round(s[\"tool_calls\"][\"mean\"], 2), \"files_read\": round(s[\"files_read_n\"][\"mean\"], 2),\n                        \"seconds\": round(s[\"duration_s\"][\"mean\"], 1), \"cost_usd\": round(s[\"cost_usd\"][\"mean\"], 4),\n                        \"input_tokens\": round(mean(r[\"input_tokens\"] for r in rr)),\n                        \"steps_to_gold\": median(steps[c]),\n                        \"errors\": len({(r[\"round\"], r[\"qid\"]) for r in rows if r[\"cond\"] == c and r[\"status\"] != \"ok\"}\n                                      - {(r[\"round\"], r[\"qid\"]) for r in rr})})\n    base = next(r for r in summary if r[\"cond\"] == \"B-organized\")\n    for r in summary:\n        r[\"cost_vs_b\"] = round(r[\"cost_usd\"] / base[\"cost_usd\"], 1)\n        r[\"tokens_vs_b\"] = round(r[\"input_tokens\"] / base[\"input_tokens\"], 1)\n    write(\"summary\", summary, inputs, \"每組各輪的平均再平均；花費是換算成 API 價格的估計。steps_to_gold 是第一次碰到正解文件的工具呼叫序號（中位數）。errors 是沒交出符合格式答案的作答次數，不計入其他欄位。\")\n\n    write(\"by_type\", [{\"type\": t, \"type_label\": QTYPE_LABELS[t], **{c: pct(agg[\"by_type\"][c][t]) for c in CONDS}}\n                      for t in agg[\"types\"]], inputs, \"各題先算多輪的答對比例，再對同題型的題目取平均；單位是 %。\")\n\n    order = [\"Grep 搜全部\", \"Grep 限定資料夾\", \"Grep 結果帶路\", \"入口檔／wiki 帶路\", \"兩者都列過\", \"其他\", \"沒碰到正解\"]\n    write(\"first_gold\", [{\"cond\": c, \"label\": COND_LABELS[c], \"how\": h, \"answers\": paths_by[c][h]}\n                         for c in CONDS for h in order if paths_by[c][h]], inputs,\n          \"只算可回答題。依第一次碰到正解文件的那一步分類：Grep 的搜尋範圍，或之前哪種輸出列過這份文件的路徑。\")\n\n    for e in ENTRY_FILES:   # 瘦身後的字元數：直接量各組資料夾裡的入口檔\n        e[\"chars_after\"] = len((stage_root() / e[\"cond\"] / e[\"file\"]).read_text(encoding=\"utf-8\"))\n    write(\"entry_files\", ENTRY_FILES, \"設計文件第 15 節（Read 工具實測）；瘦身後字元數量自各組資料夾\",\n          \"瘦身規則：入口檔不超過 28,000 字元；不放標題，關鍵字只取前 n 個。\")\n\n    trial_qs = {q[\"id\"]: q for q in load_json(WORLD / \"trial_questions.json\")}\n    latest = {(r[\"round\"], r[\"cond\"], r[\"qid\"]): r\n              for r in map(json.loads, (RESULTS / \"trial_rows.jsonl\").read_text(encoding=\"utf-8\").splitlines())}\n    gate = Counter()\n    tries = Counter()\n    for r in latest.values():\n        q = trial_qs[r[\"qid\"]]\n        right = r[\"status\"] == \"ok\" and (answer_correct(r, q) if r[\"cond\"] == CLOSED\n                                         else score(r, q, maps[r[\"cond\"]])[\"correct\"])\n        tries[q[\"type\"], r[\"cond\"]] += 1\n        gate[q[\"type\"], r[\"cond\"]] += not right\n    write(\"gate\", [{\"type\": t, \"type_label\": QTYPE_LABELS[t], \"attempts\": tries[t, CONDS[0]],\n                    \"closed_attempts\": tries[t, CLOSED], **{c: gate[t, c] for c in CONDS + [CLOSED]}}\n                   for t in [\"aggregate\", \"confusable\", \"near_miss\"]],\n          \"results/trial_rows.jsonl、world/trial_questions.json\", \"逾時或出錯算答錯。\")\n\n    write(\"questions\", [{\"qid\": qid, \"type_label\": QTYPE_LABELS[q[\"type\"]], \"question\": q[\"question\"],\n                         \"gold\": \"、\".join(q[\"must_include\"]) or \"（文件中沒有，應回答找不到）\",\n                         \"closed\": \"答對\" if qid in memorized else \"答錯\" if q[\"answerable\"] else \"—\",\n                         **{c: f\"{sum(r['correct'] for r in scored if r['qid'] == qid and r['cond'] == c)}/\"\n                               f\"{sum(1 for r in scored if r['qid'] == qid and r['cond'] == c)}\" for c in CONDS}}\n                        for qid, q in sorted(questions.items())], inputs)\n\n    total = rows + [r for r in map(json.loads, (RESULTS / \"trial_rows.jsonl\").read_text(encoding=\"utf-8\").splitlines())]\n    write(\"facts\", [{\"docs\": len(world[\"docs\"]), \"questions\": len(questions),\n                     \"answerable\": sum(q[\"answerable\"] for q in questions.values()), \"rounds\": len(agg[\"rounds\"]),\n                     \"memorized\": len(memorized), \"calls\": len(total),\n                     \"cost_total\": round(sum(r.get(\"cost_usd\") or 0 for r in total), 2),\n                     \"wiki_pages\": 88, \"wiki_minutes\": 91, \"read_cap_chars\": 33000, \"index_budget\": INDEX_BUDGET,\n                     \"keywords_kept\": 3,\n                     \"claude_version\": \"、\".join(sorted({r[\"claude_version\"] for r in ok if r.get(\"claude_version\")}))}],\n          inputs + \"、results/trial_rows.jsonl\", \"wiki 頁數與建置時間來自 Antigravity 產出的檔案時間（設計文件第 14 節）。read_cap_chars 是 Read 工具實測的截斷點（約 3.3 萬字元，設計文件第 15 節）；keywords_kept 是瘦身後每筆保留的關鍵字數。\")\n    print(f\"完成：{OUT}（{len(list(OUT.glob('*.json')))} 個檔案），作答 {len(ok)} 筆，輪數 {agg['rounds']}\")\n\n\nif __name__ == \"__main__\":\n    main()\n",
+   "type": "code",
+   "lang": "python"
+  },
+  {
+   "label": "輸入",
+   "value": "results/results.jsonl、runs/（原始紀錄）、world/questions.json、build/mapping.json"
+  }
+ ]
+}

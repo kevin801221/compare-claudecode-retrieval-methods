@@ -1,85 +1,98 @@
-# Retrieval Lab 實作計畫
+# Retrieval Lab 實作計畫（v2：官方文件版）
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**目標：** 做出一套可以重複執行的評測工具。用同一批虛構文件、同一套題目，比較 A 雜亂／B 整理／C 索引三種資料整理方式，對 Claude Code 檢索與回答準確度的影響，並產生統計表。
+**目標：** 做出可重複執行的評測工具。用 221 頁官方文件（LangChain、LangGraph、Deep Agents、Claude Agent SDK）和 Codex 出的 40 道題目，比較三種資料整理方式對 Claude Code 檢索與回答準確度的影響：A 雜亂、B 整理、C 索引。另外加上閉卷對照組，排除憑記憶就能答對的題目。
 
-**架構：** 整條流程是 `generate → build → run → report`，每一步都是一個 `uv run lab <子指令>`。
-- 文件和題目先由 `claude -p`（Sonnet）依「事實表」生成。
+**架構：** 每一步都是一個 `uv run lab <子指令>`，順序如下：
+
+`collect → (Codex 出題) → check → build → closed → run → report`
+
 - 三組實驗資料夾建在家目錄外的 stage 資料夾。
-- 評測時，每一題在每一組裡各跑一次 `claude -p`（Haiku），只開 Read、Grep、Glob 三個工具。從 stream-json 的工具呼叫紀錄判斷 Claude 實際找到了哪些檔案，再用程式比對答案評分，不用 LLM 評審。
+- 每一題在每一組各跑一次 `claude -p`（Haiku），只開 Read、Grep、Glob 三個工具。
+- 從 stream-json 的工具紀錄判斷 Claude 找到了哪些文件。
+- 用程式比對答案評分，不用 LLM 評審。
 
-**技術：** Python 3.12 以上（uv 管理）、只用標準函式庫、pytest、Claude Code CLI 2.1.325。
+**技術：** Python 3.12+（uv）、只用標準函式庫、pytest、Claude Code CLI 2.1.325、Codex CLI 0.169.0（出題）。
 
-**設計文件：** `docs/superpowers/specs/2026-11-14-retrieval-lab-design.md`（以下簡稱「設計」）。
+**設計文件：** `docs/superpowers/specs/2026-11-14-retrieval-lab-design.md`（以下稱「設計」）。
 
 ---
 
-## 已實測確認的事實（寫程式時直接依據這些）
+## 已實測確認的事實
 
-**隔離參數：** `--strict-mcp-config --setting-sources project --disable-slash-commands --no-session-persistence`
-- cwd 在家目錄外時，不會載入使用者的 CLAUDE.md、AGENTS.md、hooks、MCP。
-- cwd 在家目錄內時，`~/AGENTS.md` 和 `~/.claude/CLAUDE.md` 會被當成上層資料夾的指示載入。
+### 隔離與執行環境
 
-**stream-json（需要搭配 `--verbose`）的事件格式：**
+- 隔離參數是 `--strict-mcp-config --setting-sources project --disable-slash-commands --no-session-persistence`。
+  - 工作目錄在家目錄外時，不會載入使用者的 CLAUDE.md、AGENTS.md、hooks 和 MCP。
+  - 工作目錄在家目錄內時，`~/AGENTS.md` 和 `~/.claude/CLAUDE.md` 會被當成上層指示載入。
+- 專案 `.claude/settings.json` 的 hooks 在未信任的工作區也會執行，但 `permissions.allow` 會被忽略。
+- `claude -p` 的 stdin 不是終端機時，會先等 3 秒，所以所有呼叫都要加 `stdin=subprocess.DEVNULL`。
+- `/Users/Shared` 可以寫入，它的上層資料夾都沒有 CLAUDE.md 或 AGENTS.md。
+
+### stream-json 格式（要搭配 `--verbose`）
 
 | 事件 | 格式 |
 |---|---|
 | init | `{"type":"system","subtype":"init","tools":[...],"mcp_servers":[],"skills":[],"slash_commands":[],"model":"claude-haiku-5-5","claude_code_version":"2.1.325",...}` |
 | 工具呼叫 | `{"type":"assistant","message":{"content":[{"type":"tool_use","id":...,"name":...,"input":{...}}]}}` |
 | 工具結果 | `{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":...,"content":"文字","is_error":...}]},"tool_use_result":<結構化結果>}` |
-| 結束 | `{"type":"result","subtype":"success","is_error":false,"num_turns":6,"duration_ms":5290,"total_cost_usd":0.0017,"usage":{"input_tokens":..,"cache_creation_input_tokens":..,"cache_read_input_tokens":..,"output_tokens":..},"structured_output":{...}}` |
+| 結束 | `{"type":"result","subtype":"success","num_turns":..,"duration_ms":..,"total_cost_usd":..,"usage":{...},"structured_output":{...}}` |
+| hook | 預設**不會**輸出。加 `--include-hook-events` 後會出現 `{"type":"system","subtype":"hook_started"/"hook_response",...}` |
 
-**各工具的 `tool_use_result`：**
+各工具的 `tool_use_result`：
 
 | 工具 | 結構 |
 |---|---|
 | Glob | `{"filenames":[...]}` |
-| Grep 內文模式（`output_mode: "content"`） | `{"mode":"content","content":"docs/產品/XR-7-規格書.md:2:電池容量 4200 mAh。","filenames":[]}` |
-| Grep 檔名模式 | `{"mode":"files_with_matches","filenames":[...]}` |
-| Read | `{"type":"text","file":{"filePath":"docs/...","content":"..."}}` |
+| Grep（內文模式） | `{"mode":"content","content":"path:2:..."}` |
+| Grep（只列檔名） | `{"mode":"files_with_matches","filenames":[...]}` |
+| Read | `{"type":"text","file":{"filePath":...}}` |
 
-**其他：**
-- `--json-schema` 可以和工具並用。模型會透過 `StructuredOutput` 工具回答，結果放在 result 事件的 `structured_output`。
-- `--output-format json --tools ""` 也可以用，輸出是單一的 result 物件。
+### 評測行為
+
+- `--json-schema` 可以跟工具並用，結果放在 `result.structured_output`。
+- `--tools ""` 也能用，這時 init 的工具只剩 `StructuredOutput`。
 - Haiku 支援 `--effort`，本計畫固定用 `medium`。
-- `/Users/Shared` 可以寫入，它和所有上層資料夾都沒有 CLAUDE.md 或 AGENTS.md。
-- init 事件的 `memory_paths` 只列出 auto memory 目錄，**不能**用來確認 CLAUDE.md 有沒有載入。改用行為證據：端到端實測時，C 組的第一個動作就是照 CLAUDE.md 指引去讀 `INDEX.md`。報表會記錄每組「讀了索引」的比例。
-- 端到端實測（3 份文件、2 題）時，有些呼叫只看 Grep 內文結果就作答，完全沒有 Read。所以檢索命中必須把 Grep 內文結果算進去。
-- stream-json 預設**不會**輸出 hook 事件，要加 `--include-hook-events` 才會出現 `hook_started`／`hook_response`。所以評測呼叫一律加上這個參數，開跑前檢查裡「沒有 hook 事件」那一項才有意義。實測沒有 hook 的資料夾是 0 筆，沒有載入任何 SessionStart hook。
-- 專案 `.claude/settings.json` 裡的 hooks，在「未信任」的工作區、`-p` 模式下仍然會執行，這點和 `permissions.allow` 不同。
-- `claude -p` 的 stdin 不是終端機時，會先等 3 秒讀 stdin，所以所有 subprocess 呼叫都加上 `stdin=subprocess.DEVNULL`。
+- init 的 `memory_paths` 只有 auto memory 目錄，不能拿來確認 CLAUDE.md 有沒有載入。行為上的證據是：C 組的第一個動作就是讀 `INDEX.md`。
+- 有些呼叫只看 Grep 的內文結果就作答，完全沒有 Read。
+
+### 文件來源
+
+- `https://codeload.github.com/langchain-ai/docs/tar.gz/main`：MIT 授權，路徑是 `docs-main/src/oss/{langchain,langgraph,deepagents}/**/*.mdx`，共 79、44、58 頁。
+  - 頁面平均約 1.9 萬字元，最長約 11 萬字元。
+  - 開頭有 frontmatter（`title:`）。
+- `https://code.claude.com/docs/llms.txt`：列出 40 個 `https://code.claude.com/docs/en/agent-sdk/<頁>.md`。
+  - 每頁開頭有一段固定的 `> ## Documentation Index` 引言。
 
 ## 共通規則
 
-- **Commit：** 作者用 repo 已設定好的 `kevin801221 <kevin801221@users.noreply.github.com>`。commit 訊息**不加** Claude 署名（使用者規則），也不 push。
-- **指令位置：** 所有指令都在 `~/test-dir-1/retrieval-lab/` 下執行。
-- **Python：** 一律用 `uv run ...`，不直接呼叫 `python3`。
+- **Commit：** 作者用 repo 已設定的 `kevin801221 <kevin801221@users.noreply.github.com>`，訊息**不加** Claude 署名，也不 push。
+- **指令：** 都在 `~/test-dir-1/retrieval-lab/` 底下執行。Python 一律用 `uv run`。
 
 ## 檔案結構
 
 | 檔案 | 職責 |
 |---|---|
-| `pyproject.toml` | uv 專案設定；console script `lab` |
-| `.gitignore` | 排除 `runs/`、`.venv/` 等 |
-| `README.md` | 使用說明 |
-| `src/lab/__init__.py` | 套件標記 |
-| `src/lab/cli.py` | 子指令分派：generate／build／run／report |
-| `src/lab/common.py` | 路徑、常數、正規化、讀寫 JSON、家目錄檢查、生成用的 `claude_json()` |
-| `src/lab/trace.py` | 解析 stream-json、找出碰過的檔案、隔離檢查、整理成一列結果（純函式） |
+| `pyproject.toml`、`.gitignore`、`README.md` | 專案設定與說明 |
+| `docs/codex-questions.md` | 給 Codex 的出題說明 |
+| `src/lab/cli.py` | 子指令分派 |
+| `src/lab/common.py` | 路徑、常數、正規化、讀取世界資料、家目錄檢查、`claude_json()` |
+| `src/lab/collect.py` | 下載官方文件 |
+| `src/lab/world.py` | 檢查題目（`check_questions` 是純函式），以及 `lab check` |
+| `src/lab/trace.py` | 解析 stream-json、找出碰過的檔案、隔離檢查（純函式） |
 | `src/lab/score.py` | 評分（純函式） |
-| `src/lab/generate.py` | 事實表規劃、內文撰寫、驗證與自動修正 |
-| `src/lab/build.py` | 三組版面、盲建索引、寫入 stage、stage 檢查 |
-| `src/lab/run.py` | 開跑前檢查、逐題呼叫、續跑、寫入 results.jsonl |
-| `src/lab/report.py` | 彙整、產生 report.md、results.csv、dashboard.json |
-| `tests/test_*.py` | 每個純函式模組各一個測試檔 |
+| `src/lab/build.py` | 三組版面、盲建索引、寫入 stage、檢查 stage |
+| `src/lab/run.py` | 評測與閉卷對照 |
+| `src/lab/report.py` | 彙整、輸出 report.md、results.csv、dashboard.json |
+| `tests/test_*.py` | 每個純函式模組一個測試檔 |
 
 ---
 
 ### Task 1：專案骨架
 
 **Files:**
-- Create: `pyproject.toml`、`.gitignore`、`README.md`、`src/lab/__init__.py`、`src/lab/cli.py`
+- Create：`pyproject.toml`、`.gitignore`、`README.md`、`src/lab/__init__.py`、`src/lab/cli.py`
 
 - [ ] **Step 1：建立 `pyproject.toml`**
 
@@ -126,49 +139,64 @@ runs/
 
 - [ ] **Step 4：建立 `src/lab/cli.py`**
 
-各子指令用延遲 import，所以後面的模組還沒寫好時，`--help` 也能正常執行。
+這個檔案會 import `lab.common`，所以 `lab --help` 要等 Task 2 完成後才能執行。
 
 ```python
-"""指令列入口：uv run lab <generate|build|run|report>。"""
+"""指令列入口：uv run lab <collect|check|build|closed|run|report>。"""
 from __future__ import annotations
 
 import argparse
+
+from lab.common import FRAMEWORKS
+
+
+def _model_args(p: argparse.ArgumentParser) -> None:
+    p.add_argument("--model", default="haiku")
+    p.add_argument("--effort", default="medium")
+    p.add_argument("--workers", type=int, default=4)
+    p.add_argument("--timeout", type=int, default=180)
 
 
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="lab", description="比較資料整理方式對 Claude Code 檢索準確度的影響")
     sub = parser.add_subparsers(dest="cmd", required=True)
 
-    g = sub.add_parser("generate", help="產生事實表與文件（一次性）")
-    g.add_argument("--pilot", action="store_true", help="試跑規模：20 份文件、10 題")
-    g.add_argument("--model", default="sonnet")
-    g.add_argument("--force", action="store_true", help="覆寫既有的 world/")
+    c = sub.add_parser("collect", help="下載官方文件到 world/")
+    c.add_argument("--only", nargs="+", choices=FRAMEWORKS, help="只下載部分框架（試跑用 agent-sdk）")
+    c.add_argument("--force", action="store_true", help="覆寫既有的 world/docs.json")
+
+    sub.add_parser("check", help="檢查 world/questions.json 的題目")
 
     b = sub.add_parser("build", help="建立 A/B/C 三組實驗資料夾")
     b.add_argument("--model", default="sonnet", help="盲建索引用的模型")
 
-    r = sub.add_parser("run", help="跑評測（可續跑）")
-    r.add_argument("--rounds", type=int, required=True, help="跑到第幾輪為止；已完成的會跳過")
-    r.add_argument("--model", default="haiku")
-    r.add_argument("--effort", default="medium")
-    r.add_argument("--workers", type=int, default=4)
-    r.add_argument("--timeout", type=int, default=180)
+    _model_args(sub.add_parser("closed", help="閉卷對照：不給文件，每題問一次"))
+
+    r = sub.add_parser("run", help="跑評測（可以續跑）")
+    r.add_argument("--rounds", type=int, required=True, help="跑到第幾輪為止；已經完成的會跳過")
+    _model_args(r)
 
     p = sub.add_parser("report", help="產生統計表與網頁資料")
     p.add_argument("--model", default="haiku")
     p.add_argument("--effort", default="medium")
 
     args = parser.parse_args(argv)
-    if args.cmd == "generate":
-        from lab.generate import generate
-        generate(pilot=args.pilot, model=args.model, force=args.force)
+    if args.cmd == "collect":
+        from lab.collect import collect
+        collect(only=args.only, force=args.force)
+    elif args.cmd == "check":
+        from lab.world import check
+        check()
     elif args.cmd == "build":
         from lab.build import build
         build(model=args.model)
+    elif args.cmd == "closed":
+        from lab.run import run_closed
+        run_closed(model=args.model, effort=args.effort, workers=args.workers, timeout=args.timeout)
     elif args.cmd == "run":
         from lab.run import run
-        run(rounds=args.rounds, model=args.model, effort=args.effort,
-            workers=args.workers, timeout=args.timeout)
+        run(rounds=args.rounds, model=args.model, effort=args.effort, workers=args.workers,
+            timeout=args.timeout)
     elif args.cmd == "report":
         from lab.report import report
         report(model=args.model, effort=args.effort)
@@ -180,34 +208,40 @@ def main(argv: list[str] | None = None) -> None:
 # Retrieval Lab
 
 比較三種資料整理方式（A 雜亂／B 整理／C 索引）對 Claude Code 檢索與回答準確度的影響。
+文件使用官方原文：LangChain、LangGraph、Deep Agents、Claude Agent SDK。
 設計見 `docs/superpowers/specs/2026-11-14-retrieval-lab-design.md`。
 
 ## 需求
 
 - uv，以及已登入的 Claude Code（`claude` 指令可以用）
+- 出題用 Codex，說明在 `docs/codex-questions.md`
 - 實驗資料夾預設放在 `/Users/Shared/retrieval-lab-stage`。它必須在家目錄外，可以用環境變數 `LAB_STAGE` 換位置。
 
 ## 使用
 
 ```bash
 uv sync
-uv run lab generate --pilot      # 試跑規模：20 份文件、10 題（正式版拿掉 --pilot、加上 --force）
-uv run lab build                 # 盲建索引，並建立 A/B/C 三組
-uv run lab run --rounds 1        # 跑評測，可以續跑；--rounds 3 會補跑到第 3 輪
-uv run lab report                # 產生 results/report.md、results.csv、dashboard.json
-uv run pytest                    # 執行測試
+uv run lab collect --only agent-sdk   # 下載文件（正式版用 uv run lab collect --force）
+codex exec --full-auto "請依照 docs/codex-questions.md 出題（試跑：10 題）"
+uv run lab check                      # 檢查題目
+uv run lab build                      # 盲建索引，建立 A/B/C 三組
+uv run lab closed                     # 閉卷對照：每題問一次，不給文件
+uv run lab run --rounds 1             # 跑評測，可以續跑
+uv run lab report                     # 產生 results/report.md、results.csv、dashboard.json
+uv run pytest                         # 執行測試
 ```
 
 ## 注意
 
 - 每一輪的呼叫次數是「題數 × 3 組」，會消耗額度。
+- `world/corpus/` 是官方文件的複本，只供個人學習，repo 不要公開推送。
 - `runs/` 是原始紀錄，裡面有本機路徑，所以不進 git。
 ````
 
-- [ ] **Step 6：安裝並確認指令可以執行**
+- [ ] **Step 6：安裝**
 
-Run: `uv sync && uv run lab --help`
-Expected：最後幾行包含 `usage: lab [-h] {generate,build,run,report} ...`
+Run：`uv sync`
+Expected：建立 `.venv` 和 `uv.lock`，沒有錯誤訊息。
 
 - [ ] **Step 7：Commit**
 
@@ -221,8 +255,8 @@ git commit -m "chore: 建立 retrieval-lab 專案骨架"
 ### Task 2：共用模組 `common.py`
 
 **Files:**
-- Create: `src/lab/common.py`
-- Test: `tests/test_common.py`
+- Create：`src/lab/common.py`
+- Test：`tests/test_common.py`
 
 - [ ] **Step 1：寫測試**
 
@@ -254,7 +288,7 @@ def test_leaking_ancestors(tmp_path):
 
 - [ ] **Step 2：確認測試失敗**
 
-Run: `uv run pytest tests/test_common.py -v`
+Run：`uv run pytest tests/test_common.py -v`
 Expected：FAIL，`ModuleNotFoundError: No module named 'lab.common'`
 
 - [ ] **Step 3：實作 `src/lab/common.py`**
@@ -273,7 +307,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 WORLD = ROOT / "world"
-FACTS = WORLD / "facts.json"
+DOCS_JSON = WORLD / "docs.json"
+QUESTIONS_JSON = WORLD / "questions.json"
 CORPUS = WORLD / "corpus"
 INDEX_CACHE = WORLD / "index_rows.json"
 MAPPING = ROOT / "build" / "mapping.json"
@@ -282,8 +317,9 @@ RESULTS_JSONL = RESULTS / "results.jsonl"
 RUNS = ROOT / "runs"
 
 CONDS = ["A-messy", "B-organized", "C-indexed"]
-COND_LABELS = {"A-messy": "A 雜亂", "B-organized": "B 整理", "C-indexed": "C 索引"}
-CATEGORIES = ["產品", "人資", "客服", "工程", "會議紀錄"]
+CLOSED = "Z-closed"
+COND_LABELS = {"A-messy": "A 雜亂", "B-organized": "B 整理", "C-indexed": "C 索引", CLOSED: "閉卷"}
+FRAMEWORKS = ["agent-sdk", "deepagents", "langchain", "langgraph"]
 QTYPES = ["lookup", "paraphrase", "version", "multi_doc", "unanswerable"]
 QTYPE_LABELS = {"lookup": "直接查找", "paraphrase": "換句話說", "version": "新舊版本",
                 "multi_doc": "跨文件", "unanswerable": "題庫裡沒有"}
@@ -318,9 +354,21 @@ def save_json(path: Path, data) -> None:
     path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
+def load_world() -> dict:
+    """回傳 {"docs": [...], "questions": [...]}；還沒出題時 questions 是空清單。"""
+    docs = load_json(DOCS_JSON)["docs"]
+    questions = load_json(QUESTIONS_JSON) if QUESTIONS_JSON.exists() else []
+    return {"docs": docs, "questions": questions}
+
+
+def load_bodies(world: dict) -> dict[str, str]:
+    return {d["id"]: (CORPUS / f"{d['id']}.md").read_text(encoding="utf-8") for d in world["docs"]}
+
+
 def world_id() -> str:
-    """事實表內容的指紋：換一套題目就換一個 id，舊結果自動不納入統計。"""
-    return sha256(FACTS.read_text(encoding="utf-8"))[:12]
+    """文件清單加上題目的指紋：換文件或換題目，就換一個 id，舊結果自動不納入統計。"""
+    questions = QUESTIONS_JSON.read_text(encoding="utf-8") if QUESTIONS_JSON.exists() else ""
+    return sha256(DOCS_JSON.read_text(encoding="utf-8") + questions)[:12]
 
 
 def read_rows() -> list[dict]:
@@ -344,7 +392,7 @@ def leaking_ancestors(path: Path) -> list[Path]:
 
 
 def claude_json(prompt: str, schema: dict, model: str, timeout: int = 900) -> dict:
-    """生成用的結構化呼叫：不開任何工具，在家目錄外的暫存資料夾執行。"""
+    """一次性的結構化呼叫（盲建索引用）：不開任何工具，在家目錄外的暫存資料夾執行。"""
     with tempfile.TemporaryDirectory() as tmp:
         if is_under_home(Path(tmp)):
             raise RuntimeError(f"暫存資料夾在家目錄底下（{tmp}），請把 TMPDIR 設到家目錄外")
@@ -361,16 +409,18 @@ def claude_json(prompt: str, schema: dict, model: str, timeout: int = 900) -> di
     return out["structured_output"]
 ```
 
-- [ ] **Step 4：確認測試通過**
+- [ ] **Step 4：確認測試通過，指令也能執行**
 
-Run: `uv run pytest tests/test_common.py -v`
-Expected：3 passed
+Run：`uv run pytest tests/test_common.py -v && uv run lab --help`
+Expected：
+- 3 passed
+- 印出 `usage: lab [-h] {collect,check,build,closed,run,report} ...`
 
 - [ ] **Step 5：Commit**
 
 ```bash
 git add src/lab/common.py tests/test_common.py
-git commit -m "feat: 共用設定、正規化與家目錄檢查"
+git commit -m "feat: 共用設定、正規化、世界資料讀取與家目錄檢查"
 ```
 
 ---
@@ -378,12 +428,10 @@ git commit -m "feat: 共用設定、正規化與家目錄檢查"
 ### Task 3：解析 stream-json（`trace.py`）
 
 **Files:**
-- Create: `src/lab/trace.py`
-- Test: `tests/test_trace.py`
+- Create：`src/lab/trace.py`
+- Test：`tests/test_trace.py`
 
 - [ ] **Step 1：寫測試**
-
-假資料的格式照「已實測確認的事實」一節。
 
 ```python
 import json
@@ -447,7 +495,7 @@ def test_parse_stream_collects_calls_in_order():
 def test_touched_files_counts_read_and_grep_content_only():
     read, grep = touched_files(parse_stream(STREAM)["calls"], [ROOT], KNOWN)
     assert read == ["docs/會議紀錄/週會-0301.md"]   # 失敗的 Read 不算
-    assert grep == ["docs/產品/XR-7-規格書.md"]      # Glob 與檔名模式不算
+    assert grep == ["docs/產品/XR-7-規格書.md"]      # Glob 與只列檔名的 Grep 不算
 
 
 def test_grep_content_with_absolute_paths_and_context_lines():
@@ -497,11 +545,18 @@ def test_isolation_problems():
     hook = ev(type="system", subtype="hook_response")
     assert len(isolation_problems(parse_stream(leaky + "\n" + hook))) == 4
     assert isolation_problems(parse_stream("")) == ["沒有 init 事件（claude 可能沒有正常啟動）"]
+
+
+def test_isolation_expected_tools_for_closed_book():
+    closed_init = ev(type="system", subtype="init", tools=["StructuredOutput"], mcp_servers=[], skills=[],
+                     slash_commands=[])
+    assert isolation_problems(parse_stream(closed_init), {"StructuredOutput"}) == []
+    assert isolation_problems(parse_stream(closed_init)) != []   # 預設期待的是三個檢索工具
 ```
 
 - [ ] **Step 2：確認測試失敗**
 
-Run: `uv run pytest tests/test_trace.py -v`
+Run：`uv run pytest tests/test_trace.py -v`
 Expected：FAIL，`ModuleNotFoundError: No module named 'lab.trace'`
 
 - [ ] **Step 3：實作 `src/lab/trace.py`**
@@ -570,7 +625,7 @@ def relpath(path: str, roots: list[str]) -> str:
 
 
 def touched_files(calls: list[dict], roots: list[str], known: set[str]) -> tuple[list[str], list[str]]:
-    """回傳 (Read 過的檔案, 出現在 Grep 內文結果中的檔案)。只算 known 裡的文件；Glob 與檔名清單不算。"""
+    """回傳 (Read 過的檔案, 出現在 Grep 內文結果中的檔案)。只算 known 裡的檔案；Glob 與只列檔名的結果不算。"""
     read: list[str] = []
     grep: list[str] = []
     for call in calls:
@@ -597,14 +652,14 @@ def touched_files(calls: list[dict], roots: list[str], known: set[str]) -> tuple
     return read, grep
 
 
-def isolation_problems(trace: dict) -> list[str]:
+def isolation_problems(trace: dict, expected: set[str] = EXPECTED_TOOLS) -> list[str]:
     """檢查這次呼叫是否乾淨：只有預期的工具，沒有 MCP、技能、slash commands、hook。"""
     init = trace["init"]
     if not init:
         return ["沒有 init 事件（claude 可能沒有正常啟動）"]
     problems = []
     tools = set(init.get("tools") or [])
-    if tools != EXPECTED_TOOLS:
+    if tools != expected:
         problems.append(f"工具不符：{sorted(tools)}")
     if init.get("mcp_servers"):
         problems.append("載入了 MCP 伺服器")
@@ -651,8 +706,8 @@ def summarize(trace: dict, roots: list[str], known: set[str]) -> dict:
 
 - [ ] **Step 4：確認測試通過**
 
-Run: `uv run pytest tests/test_trace.py -v`
-Expected：8 passed
+Run：`uv run pytest tests/test_trace.py -v`
+Expected：9 passed
 
 - [ ] **Step 5：Commit**
 
@@ -666,13 +721,13 @@ git commit -m "feat: 解析 stream-json，從工具紀錄判斷碰過哪些檔�
 ### Task 4：評分（`score.py`）
 
 **Files:**
-- Create: `src/lab/score.py`
-- Test: `tests/test_score.py`
+- Create：`src/lab/score.py`
+- Test：`tests/test_score.py`
 
 - [ ] **Step 1：寫測試**
 
 ```python
-from lab.score import score
+from lab.score import answer_correct, score
 
 PATHS = {"D1": "docs/a.md", "D2": "docs/b.md", "D3": "docs/old.md"}
 
@@ -712,8 +767,13 @@ def test_index_in_sources_does_not_lower_precision():
     assert s["citation_precision"] == 1.0
 
 
+def test_any_gold_doc_counts_for_lookup():
+    s = score(row("4200", read=["docs/b.md"], sources=["docs/b.md"]), q("lookup", ["4200"], gold=("D1", "D2")), PATHS)
+    assert s["retrieved"] is True and s["citation_hit"] is True
+
+
 def test_version_new_value_with_old_mentioned_is_correct():
-    s = score(row("2025 版 1200 元，2024 版是 1000 元"), q("version", ["1200"], ["1000"]), PATHS)
+    s = score(row("現在用 1200，以前是 1000"), q("version", ["1200"], ["1000"]), PATHS)
     assert s["correct"] is True and s["stale"] is False and s["hallucinated"] is False
 
 
@@ -736,11 +796,17 @@ def test_unanswerable():
     assert good["correct"] is True and good["hallucinated"] is False and good["retrieved"] is None
     bad = score(row("重量 3 公斤", found=True), question, PATHS)
     assert bad["correct"] is False and bad["hallucinated"] is True
+
+
+def test_answer_correct_for_closed_book():
+    assert answer_correct(row("4200 mAh"), q("lookup", ["4200"])) is True
+    assert answer_correct(row("不知道", found=False), q("lookup", ["4200"])) is False
+    assert answer_correct(row("不知道", found=False), q("unanswerable", answerable=False)) is True
 ```
 
 - [ ] **Step 2：確認測試失敗**
 
-Run: `uv run pytest tests/test_score.py -v`
+Run：`uv run pytest tests/test_score.py -v`
 Expected：FAIL，`ModuleNotFoundError: No module named 'lab.score'`
 
 - [ ] **Step 3：實作 `src/lab/score.py`**
@@ -751,7 +817,15 @@ from __future__ import annotations
 
 from lab.common import norm
 
-NON_DOCS = {"INDEX.md", "CLAUDE.md"}   # 索引和指引不是文件，不計入引用比率
+NON_DOCS = {"INDEX.md", "CLAUDE.md"}   # 索引和指引不是文件，不計入引用
+
+
+def answer_correct(row: dict, q: dict) -> bool:
+    """可回答題：found 而且所有答案字串都出現；不可回答題：found=false。閉卷組也用這個判斷。"""
+    if not q["answerable"]:
+        return not row["found"]
+    answer = norm(row["answer"])
+    return row["found"] and all(norm(t) in answer for t in q["must_include"])
 
 
 def score(row: dict, q: dict, paths: dict[str, str]) -> dict:
@@ -761,6 +835,11 @@ def score(row: dict, q: dict, paths: dict[str, str]) -> dict:
                 "retrieved": None, "read_gold": None, "citation_hit": None, "citation_precision": None}
     answer = norm(row["answer"])
     gold = {paths[d] for d in q["gold_docs"]}
+    need_all = q["type"] == "multi_doc"   # 跨文件題要全部找到；其他題型找到任一份就算
+
+    def hit(files: set[str]) -> bool:
+        return gold <= files if need_all else bool(gold & files)
+
     read = set(row["files_read"])
     sources = set(row["sources"]) - NON_DOCS
     has_new = all(norm(t) in answer for t in q["must_include"])
@@ -771,539 +850,387 @@ def score(row: dict, q: dict, paths: dict[str, str]) -> dict:
         "correct": row["found"] and has_new,
         "hallucinated": bool(stale),
         "stale": stale,
-        "retrieved": gold <= read | set(row["files_grep_content"]),
-        "read_gold": gold <= read,
-        "citation_hit": gold <= sources,
+        "retrieved": hit(read | set(row["files_grep_content"])),
+        "read_gold": hit(read),
+        "citation_hit": hit(sources),
         "citation_precision": len(sources & gold) / len(sources) if sources else 0.0,
     }
 ```
 
 - [ ] **Step 4：確認測試通過**
 
-Run: `uv run pytest tests/test_score.py -v`
-Expected：9 passed
+Run：`uv run pytest tests/test_score.py -v`
+Expected：11 passed
 
 - [ ] **Step 5：Commit**
 
 ```bash
 git add src/lab/score.py tests/test_score.py
-git commit -m "feat: 以程式比對評分（答對、幻覺、檢索命中、引用）"
+git commit -m "feat: 以程式比對評分（答對、幻覺、檢索命中、引用、閉卷）"
 ```
 
 ---
 
-### Task 5：事實表的組裝與驗證（`generate.py` 的純函式部分）
+### Task 5：題目檢查（`world.py`）與 Codex 出題說明
 
 **Files:**
-- Create: `src/lab/generate.py`
-- Test: `tests/test_generate.py`
+- Create：`src/lab/world.py`、`docs/codex-questions.md`
+- Test：`tests/test_world.py`
 
 - [ ] **Step 1：寫測試**
 
 ```python
-from lab.generate import PATH_TRACE, answer_leaks, assemble, check_item, fix_slugs, validate
+from lab.world import check_questions
+
+DOCS = [{"id": "sdk/hooks"}, {"id": "sdk/sessions"}, {"id": "lg/persistence"}]
+BODIES = {"sdk/hooks": "Use PreToolUse hooks. Default timeout 60000 ms.",
+          "sdk/sessions": "Resume with the resume option. Sessions persist.",
+          "lg/persistence": "Use InMemorySaver as checkpointer. create_react_agent is deprecated; use create_agent."}
 
 
-def spec(title, category="產品", slug="s", facts=("事實",)):
-    return {"title": title, "category": category, "slug": slug, "date": "2025-01-01",
-            "facts": list(facts), "brief": "b"}
+def q(**kw):
+    base = {"id": "Q01", "type": "lookup", "question": "？", "must_include": ["60000"], "must_not_include": [],
+            "gold_docs": ["sdk/hooks"], "probe_terms": [], "answerable": True}
+    return base | kw
 
 
-def item(gold=(), extra=(), must=(), must_not=(), probe=()):
-    return {"question": "問？", "gold": list(gold), "extra": list(extra), "must_include": list(must),
-            "must_not_include": list(must_not), "probe_terms": list(probe)}
+def check(*questions):
+    return check_questions({"docs": DOCS, "questions": list(questions)}, BODIES)
 
 
-def test_check_item_rules():
-    assert check_item("lookup", item(gold=[spec("a")], must=["1"])) is None
-    assert check_item("lookup", item(gold=[], must=["1"])) is not None
-    assert check_item("version", item(gold=[spec("新")], extra=[spec("舊")], must=["2"], must_not=["1"])) is None
-    assert check_item("version", item(gold=[spec("新")], must=["2"], must_not=["1"])) is not None
-    assert check_item("multi_doc", item(gold=[spec("a"), spec("b")], must=["1", "2"])) is None
-    assert check_item("unanswerable", item(extra=[spec("a")], probe=["LK-9", "重量"])) is None
-    assert check_item("unanswerable", item(probe=["LK-9"])) is not None
+def test_good_questions_pass():
+    problems, warnings = check(
+        q(),
+        q(id="Q02", type="version", must_include=["create_agent"], must_not_include=["create_react_agent"],
+          gold_docs=["lg/persistence"]),
+        q(id="Q03", type="multi_doc", must_include=["60000", "InMemorySaver"], gold_docs=["sdk/hooks", "lg/persistence"]),
+        q(id="Q04", type="unanswerable", must_include=[], gold_docs=[], probe_terms=["Agent SDK", "Ruby"],
+          answerable=False),
+    )
+    assert problems == [] and warnings == []
 
 
-def test_fix_slugs_sanitizes_and_dedupes():
-    docs = [{"id": "D001", "category": "人資", "slug": "出差 補助/辦法（2025）"},
-            {"id": "D002", "category": "人資", "slug": "出差 補助/辦法（2025）"},
-            {"id": "D003", "category": "客服", "slug": "出差 補助/辦法（2025）"}]
-    fix_slugs(docs)
-    assert [d["slug"] for d in docs] == ["出差-補助-辦法-2025", "出差-補助-辦法-2025-2", "出差-補助-辦法-2025"]
+def test_problems_are_reported():
+    problems, _ = check(
+        q(must_include=["99999"]),                                                   # 答案不在 gold 文件
+        q(),                                                                          # id 重複
+        q(id="Q03", gold_docs=["nope"]),                                              # 文件不存在
+        q(id="Q04", type="multi_doc", must_include=["60000"], gold_docs=["sdk/hooks"]),  # 跨文件只有 1 份
+        q(id="Q05", type="version", must_include=["create_agent"], gold_docs=["lg/persistence"]),  # 沒有舊寫法
+        q(id="Q06", must_include=["persist"], gold_docs=["sdk/hooks"]),              # 答案其實在別份文件
+    )
+    text = "\n".join(problems)
+    for expected in ["沒有完整答案", "id 重複", "找不到文件", "至少要 2 份", "must_not_include",
+                     "完整答案也出現在 sdk/sessions"]:
+        assert expected in text
 
 
-def make_facts():
-    planned = {
-        "lookup": [item(gold=[spec("XR-7 規格書", slug="XR-7-規格書", facts=["電池容量 4200 mAh"])], must=["4200"])],
-        "version": [item(gold=[spec("補助 2025", category="人資", slug="補助-2025", facts=["每日 1200 元"])],
-                         extra=[spec("補助 2024", category="人資", slug="補助-2024", facts=["每日 1000 元"])],
-                         must=["1200"], must_not=["1000"])],
-        "unanswerable": [item(extra=[spec("LK-9 介紹", slug="LK-9-介紹", facts=["LK-9 支援指紋"])],
-                              probe=["LK-9", "重量"])],
-    }
-    return assemble(planned, [spec("週會", category="會議紀錄", slug="週會") | {"role": "filler"}], pilot=True)
-
-
-def test_assemble_ids_and_fields():
-    facts = make_facts()
-    assert [d["id"] for d in facts["docs"]] == ["D001", "D002", "D003", "D004", "D005"]
-    q1, q2, q3 = facts["questions"]
-    assert (q1["id"], q1["gold_docs"], q1["answerable"]) == ("Q01", ["D001"], True)
-    assert (q2["type"], q2["gold_docs"], q2["extra_docs"]) == ("version", ["D002"], ["D003"])
-    assert (q3["answerable"], q3["gold_docs"], q3["extra_docs"], q3["probe_terms"]) == (False, [], ["D004"], ["LK-9", "重量"])
-    assert facts["docs"][4]["role"] == "filler"
-
-
-GOOD = {"D001": "# XR-7 規格書\n電池容量 4,200 mAh。", "D002": "# 補助 2025\n每日 1200 元。",
-        "D003": "# 補助 2024\n每日 1000 元。", "D004": "# LK-9 介紹\nLK-9 支援指紋。", "D005": "# 週會\n討論事項。"}
-
-
-def test_validate_passes_on_good_bodies():
-    assert validate(make_facts(), GOOD) == []
-
-
-def test_validate_flags_each_problem():
-    facts = make_facts()
-    bad = GOOD | {"D001": "# XR-7\n容量未定。",
-                  "D002": "# 補助 2025\n由 1000 元調高為 1200 元。",
-                  "D005": "# 週會\nLK-9 重量 3 公斤，見 docs/x.md"}
-    problems = validate(facts, bad)
-    kinds = {(p["doc"], p["kind"]) for p in problems}
-    assert ("D001", "missing_answer") in kinds
-    assert ("D002", "old_value_in_new") in kinds
-    assert ("D005", "path_trace") in kinds
-    assert ("D005", "unanswerable_leak") in kinds
-    assert {p["doc"]: p["avoid"] for p in problems if p["avoid"]} == {"D002": "1000", "D005": "重量"}
-
-
-def test_answer_leaks_lists_non_gold_docs_with_answer():
-    facts = make_facts()
-    assert answer_leaks(facts, GOOD) == []
-    assert answer_leaks(facts, GOOD | {"D005": "# 週會\nXR-7 電池 4200 mAh。"}) == [("Q01", "4200", "D005")]
-
-
-def test_path_trace_pattern():
-    assert PATH_TRACE.search("請見 doc_012")
-    assert PATH_TRACE.search("README.md")
-    assert not PATH_TRACE.search("一般內容 2025")
+def test_unanswerable_warning_when_terms_cooccur():
+    _, warnings = check(q(type="unanswerable", must_include=[], gold_docs=[], probe_terms=["hooks", "timeout"],
+                          answerable=False))
+    assert warnings and "sdk/hooks" in warnings[0]
 ```
 
 - [ ] **Step 2：確認測試失敗**
 
-Run: `uv run pytest tests/test_generate.py -v`
-Expected：FAIL，`ModuleNotFoundError: No module named 'lab.generate'`
+Run：`uv run pytest tests/test_world.py -v`
+Expected：FAIL，`ModuleNotFoundError: No module named 'lab.world'`
 
-- [ ] **Step 3：實作 `src/lab/generate.py`（純函式部分）**
+- [ ] **Step 3：實作 `src/lab/world.py`**
 
 ```python
-"""事實表 → 文件。先規劃題目與文件規格，再分批寫內文，最後用程式驗證答案確實寫在文件裡。"""
+"""題目檢查：check_questions 是純函式，check() 是 lab check 指令。規則見設計第 4.4、4.6 節。"""
 from __future__ import annotations
 
-import re
+from collections import Counter
 
-from lab.common import QTYPES, norm
+from lab.common import QTYPE_LABELS, QTYPES, load_bodies, load_world, norm
 
-WORLD_BRIEF = """虛構公司「雲杉科技」（Yunshan Tech）：台灣的智慧家電公司，2019 年成立，總部在新竹。
-產品線：空氣清淨機 XR 系列（XR-3、XR-5、XR-7）、掃地機器人 RB 系列（RB-10、RB-20）、
-除濕機 DH 系列（DH-12、DH-16）、智慧插座 SP-1、智慧門鎖 LK-9，以及手機 App「雲杉家」。
-部門：產品部、人資部、客服部、工程部、業務部。"""
-
-PATH_TRACE = re.compile(r"\.md\b|docs/|doc_\d+", re.IGNORECASE)
+FIELDS = ["id", "type", "question", "must_include", "must_not_include", "gold_docs", "probe_terms", "answerable"]
 
 
-def check_item(qtype: str, item: dict) -> str | None:
-    """檢查規劃出來的一題是否符合題型結構；不符合時回傳原因。"""
-    n_gold, n_extra = len(item["gold"]), len(item["extra"])
-    if qtype in ("lookup", "paraphrase") and (n_gold != 1 or not item["must_include"]):
-        return "需要 1 份 gold 和至少 1 個答案字串"
-    if qtype == "version" and (n_gold != 1 or n_extra < 1 or not item["must_include"]
-                               or not item["must_not_include"]):
-        return "需要新版 gold、舊版 extra，以及新舊數值"
-    if qtype == "multi_doc" and (n_gold != 2 or len(item["must_include"]) < 2):
-        return "需要 2 份 gold 和至少 2 個答案字串"
-    if qtype == "unanswerable" and (n_gold != 0 or len(item["probe_terms"]) != 2):
-        return "gold 要留空，probe_terms 要剛好 2 個"
-    return None
-
-
-def fix_slugs(docs: list[dict]) -> None:
-    """把 slug 改成安全的檔名，並確保同一個類別內不重複。"""
-    seen: set[tuple[str, str]] = set()
-    for d in docs:
-        base = re.sub(r"[^\w\-]+", "-", d["slug"]).strip("-")[:60] or d["id"]
-        slug, n = base, 2
-        while (d["category"], slug) in seen:
-            slug, n = f"{base}-{n}", n + 1
-        seen.add((d["category"], slug))
-        d["slug"] = slug
-
-
-def assemble(planned: dict[str, list[dict]], fillers: list[dict], pilot: bool) -> dict:
-    """把規劃結果組成 facts.json，配發 D001、Q01 這類 id。"""
-    docs: list[dict] = []
-    questions: list[dict] = []
-
-    def add(spec: dict, role: str) -> str:
-        doc_id = f"D{len(docs) + 1:03d}"
-        docs.append({"id": doc_id, "title": spec["title"].strip(), "category": spec["category"],
-                     "slug": spec["slug"], "date": spec["date"], "role": role,
-                     "facts": spec["facts"], "brief": spec["brief"], "avoid": []})
-        return doc_id
-
-    for qtype in QTYPES:
-        for item in planned.get(qtype, []):
-            answerable = qtype != "unanswerable"
-            gold = [add(s, "gold" if answerable else "distractor") for s in item["gold"]]
-            extra = [add(s, "distractor") for s in item["extra"]]
-            questions.append({
-                "id": f"Q{len(questions) + 1:02d}",
-                "type": qtype,
-                "question": item["question"].strip(),
-                "must_include": item["must_include"] if answerable else [],
-                "must_not_include": item["must_not_include"] if qtype == "version" else [],
-                "gold_docs": gold if answerable else [],
-                "extra_docs": extra,
-                "probe_terms": item["probe_terms"] if qtype == "unanswerable" else [],
-                "answerable": answerable,
-            })
-    for spec in fillers:
-        add(spec, spec.get("role", "filler"))
-    fix_slugs(docs)
-    return {"version": 1, "pilot": pilot, "world": WORLD_BRIEF, "docs": docs, "questions": questions}
-
-
-def _owner(q: dict, token: str, docs: dict[str, dict]) -> str:
-    """答案字串應該寫在哪一份 gold 文件：依 facts 判斷，找不到就用第一份。"""
-    for doc_id in q["gold_docs"]:
-        if norm(token) in norm(" ".join(docs[doc_id]["facts"])):
-            return doc_id
-    return q["gold_docs"][0]
-
-
-def validate(facts: dict, bodies: dict[str, str]) -> list[dict]:
-    """回傳問題清單。每個問題含 doc（該重寫哪份文件；None 表示無法自動修）、kind、detail、avoid（重寫時要避開的字）。"""
-    docs = {d["id"]: d for d in facts["docs"]}
-    normed = {doc_id: norm(bodies.get(doc_id, "")) for doc_id in docs}
-    problems: list[dict] = []
-
-    def add(doc: str | None, kind: str, detail: str, avoid: str | None = None) -> None:
-        problems.append({"doc": doc, "kind": kind, "detail": detail, "avoid": avoid})
-
-    for doc_id in docs:
-        body = bodies.get(doc_id, "")
-        if not body.strip():
-            add(doc_id, "missing_body", "沒有內文")
-        elif m := PATH_TRACE.search(body):
-            add(doc_id, "path_trace", f"出現路徑痕跡「{m.group(0)}」")
-    for q in facts["questions"]:
-        for token in q["must_include"]:
-            owner = _owner(q, token, docs)
-            if norm(token) not in normed[owner]:
-                add(owner, "missing_answer", f"{q['id']} 缺少答案「{token}」")
-        if q["type"] == "multi_doc":
-            for doc_id in q["gold_docs"]:
-                if not any(norm(t) in normed[doc_id] for t in q["must_include"]):
-                    add(doc_id, "multi_doc_unused", f"{q['id']} 這份文件沒有任何答案字串")
-        if q["type"] == "version":
-            new, old = q["gold_docs"][0], q["extra_docs"][0]
-            for token in q["must_not_include"]:
-                if norm(token) in normed[new]:
-                    add(new, "old_value_in_new", f"{q['id']} 新版出現舊值「{token}」", avoid=token)
-                if norm(token) not in normed[old]:
-                    add(old, "old_value_missing", f"{q['id']} 舊版缺少舊值「{token}」")
+def check_questions(world: dict, bodies: dict[str, str]) -> tuple[list[str], list[str]]:
+    """回傳 (問題, 提醒)。有「問題」就不能開跑；「提醒」要在審題時看過。"""
+    docs = {d["id"] for d in world["docs"]}
+    normed = {doc_id: norm(body) for doc_id, body in bodies.items()}
+    problems: list[str] = []
+    warnings: list[str] = []
+    seen: set[str] = set()
+    for q in world["questions"]:
+        qid = str(q.get("id", "?"))
+        if missing := [k for k in FIELDS if k not in q]:
+            problems.append(f"{qid}：缺少欄位 {', '.join(missing)}")
+            continue
+        if qid in seen:
+            problems.append(f"{qid}：id 重複")
+        seen.add(qid)
+        if q["type"] not in QTYPES:
+            problems.append(f"{qid}：未知題型 {q['type']}")
+            continue
+        if q["answerable"] != (q["type"] != "unanswerable"):
+            problems.append(f"{qid}：answerable 與題型不符")
+        if unknown := [d for d in q["gold_docs"] if d not in docs]:
+            problems.append(f"{qid}：找不到文件 {', '.join(unknown)}")
+            continue
+        tokens = [norm(t) for t in q["must_include"]]
         if q["type"] == "unanswerable":
-            entity, attr = q["probe_terms"]
-            if not any(norm(entity) in b for b in normed.values()):
-                add(q["extra_docs"][0] if q["extra_docs"] else None, "entity_absent",
-                    f"{q['id']} 沒有任何文件提到「{entity}」")
-            for doc_id, b in normed.items():
-                if norm(entity) in b and norm(attr) in b:
-                    add(doc_id, "unanswerable_leak", f"{q['id']} 文件同時提到「{entity}」和「{attr}」", avoid=attr)
-    return problems
+            if q["gold_docs"] or q["must_include"]:
+                problems.append(f"{qid}：題庫裡沒有的題目，gold_docs 和 must_include 要留空")
+            if len(q["probe_terms"]) != 2:
+                problems.append(f"{qid}：probe_terms 要剛好 2 個")
+            else:
+                entity, attr = (norm(t) for t in q["probe_terms"])
+                both = [d for d, b in normed.items() if entity in b and attr in b]
+                if both:
+                    warnings.append(f"{qid}：「{q['probe_terms'][0]}」和「{q['probe_terms'][1]}」同時出現在 "
+                                    f"{', '.join(both[:5])}，請確認這些文件真的沒有回答這題")
+            continue
+        if not tokens:
+            problems.append(f"{qid}：缺少答案字串")
+            continue
+        if q["type"] == "multi_doc":
+            if len(q["gold_docs"]) < 2:
+                problems.append(f"{qid}：跨文件題至少要 2 份 gold 文件")
+            for token, raw in zip(tokens, q["must_include"]):
+                if not any(token in normed[d] for d in q["gold_docs"]):
+                    problems.append(f"{qid}：答案「{raw}」不在任何 gold 文件裡")
+            for d in q["gold_docs"]:
+                if not any(token in normed[d] for token in tokens):
+                    problems.append(f"{qid}：gold 文件 {d} 沒有任何答案字串")
+            continue
+        if not q["gold_docs"]:
+            problems.append(f"{qid}：缺少 gold 文件")
+            continue
+        for d in q["gold_docs"]:
+            if not all(token in normed[d] for token in tokens):
+                problems.append(f"{qid}：gold 文件 {d} 沒有完整答案")
+        extra = [d for d, b in normed.items() if d not in q["gold_docs"] and all(t in b for t in tokens)]
+        if extra:
+            problems.append(f"{qid}：完整答案也出現在 {', '.join(extra[:5])}，請加進 gold_docs 或換一個答案字串")
+        if q["type"] == "version" and not q["must_not_include"]:
+            problems.append(f"{qid}：新舊版本題要有 must_not_include（舊的寫法）")
+    return problems, warnings
 
 
-def answer_leaks(facts: dict, bodies: dict[str, str]) -> list[tuple[str, str, str]]:
-    """審題用：列出「不是 gold、卻也含有答案字串」的文件，格式為 (qid, 答案字串, doc_id)。"""
-    leaks = []
-    for q in facts["questions"]:
-        for token in q["must_include"]:
-            for doc_id, body in bodies.items():
-                if doc_id not in q["gold_docs"] and norm(token) in norm(body):
-                    leaks.append((q["id"], token, doc_id))
-    return leaks
+def check() -> None:
+    """lab check：印出題目統計、提醒和問題；有問題時以非 0 結束。"""
+    world = load_world()
+    if not world["questions"]:
+        raise SystemExit("world/questions.json 還沒有題目，請先依照 docs/codex-questions.md 出題")
+    problems, warnings = check_questions(world, load_bodies(world))
+    counts = Counter(q.get("type") for q in world["questions"])
+    print(f"文件 {len(world['docs'])} 份，題目 {len(world['questions'])} 題："
+          + "、".join(f"{QTYPE_LABELS.get(t, t)} {n}" for t, n in counts.items()))
+    for w in warnings:
+        print(f"  提醒：{w}")
+    for p in problems:
+        print(f"  問題：{p}")
+    if problems:
+        raise SystemExit(f"有 {len(problems)} 個問題要修正")
+    print("沒有問題" + (f"（有 {len(warnings)} 個提醒，審題時請一併確認）" if warnings else ""))
 ```
 
-- [ ] **Step 4：確認測試通過**
+- [ ] **Step 4：建立 `docs/codex-questions.md`**
 
-Run: `uv run pytest tests/test_generate.py -v`
-Expected：7 passed
+````markdown
+# 出題任務（給 Codex）
 
-- [ ] **Step 5：Commit**
+你要替一個「檢索評測」出題。之後會有另一個 AI 只靠這些文件回答你的題目，再由程式比對答案。
+
+- 文件：`world/corpus/<id>.md`（英文官方文件）。清單和 id 在 `world/docs.json`。
+- 輸出：把題目寫進 `world/questions.json`（JSON 陣列）。
+- 檢查：執行 `.venv/bin/lab check`，一直修到沒有任何「問題」為止。
+
+## 題數
+
+- 試跑：10 題，每種題型 2 題。目前只有 agent-sdk 的文件。
+- 正式：40 題，每種題型 8 題。agent-sdk、deepagents、langchain、langgraph 四個框架都要出到題，試跑的題目可以沿用。
+
+## 每一題的格式
+
+```json
+{"id": "Q01", "type": "lookup", "question": "…", "must_include": ["…"], "must_not_include": [],
+ "gold_docs": ["agent-sdk/hooks"], "probe_terms": [], "answerable": true}
+```
+
+## 共通規則
+
+1. 題目用繁體中文，寫成台灣工程師平常會問的問題。可以保留必要的英文專有名詞（產品、類別、函式名稱），但不要整句照抄文件。
+2. `must_include` 是程式判分用的答案字串，必須逐字出現在文件裡，而且要短而獨特，例如類別或函式名稱、參數名稱、預設值、版本號、指令。不要用 `True`、`None`、`100` 這種到處都有的字。
+3. 優先問「要查文件才知道」的細節，例如參數名稱、預設值、限制、錯誤訊息、較新的功能。不要問一般常識，或任何人都知道的概念。
+4. 每寫一題，就用 `grep -rlF "<答案字串>" world/corpus` 查它出現在哪些文件。
+
+## 題型
+
+| type | 怎麼出 | gold_docs |
+|---|---|---|
+| `lookup` | 題目直接點出要查的東西 | 完整答案出現的**所有**文件 |
+| `paraphrase` | 刻意不提文件裡的關鍵英文詞，改用中文描述（例如不說 interrupt，而說「讓流程暫停、等人確認後再繼續」） | 同上 |
+| `version` | 新舊 API 或設定的差異（遷移指南、deprecated 說明）。`must_include` 放現在該用的寫法，`must_not_include` 放舊寫法 | 同上 |
+| `multi_doc` | 題目同時問兩件事，答案分別只在兩份不同的文件裡。`must_include` 每份文件各提供至少 1 個 | 這兩份文件 |
+| `unanswerable` | 合理、但這些文件**完全沒有回答**的問題，出題前先 grep 確認。`gold_docs` 和 `must_include` 留空，`answerable` 設為 `false`，`probe_terms` 放 [實體, 屬性]，例如 `["Agent SDK", "Ruby"]` | 留空 |
+
+其他欄位的規則：
+- 除了 `unanswerable`，其他題型的 `answerable` 都是 `true`。
+- `must_not_include` 只有 `version` 要填，其他留空。
+- `probe_terms` 只有 `unanswerable` 要填，其他留空。
+
+## 完成條件
+
+`.venv/bin/lab check` 顯示「沒有問題」。「提醒」可以保留，但要在最後的回覆裡逐一說明為什麼可以接受。
+````
+
+- [ ] **Step 5：確認測試通過**
+
+Run：`uv run pytest tests/test_world.py -v`
+Expected：3 passed
+
+- [ ] **Step 6：Commit**
 
 ```bash
-git add src/lab/generate.py tests/test_generate.py
-git commit -m "feat: 事實表組裝與驗證"
+git add src/lab/world.py tests/test_world.py docs/codex-questions.md
+git commit -m "feat: 題目檢查與 Codex 出題說明"
 ```
 
 ---
 
-### Task 6：呼叫 Claude 生成（`generate.py` 的生成部分）
+### Task 6：下載官方文件（`collect.py`）
 
 **Files:**
-- Modify: `src/lab/generate.py`（換掉 import 區塊，並在檔案最後加上程式）
+- Create：`src/lab/collect.py`
+- Test：`tests/test_collect.py`
 
-- [ ] **Step 1：把 `src/lab/generate.py` 開頭的 import 區塊換成以下內容**
+- [ ] **Step 1：寫測試**
 
 ```python
+from lab.collect import DOC_INDEX_BANNER, SDK_LINK, title_of
+
+
+def test_title_of():
+    assert title_of("---\ntitle: Persistence\ndescription: x\n---\n# Other", "s") == "Persistence"
+    assert title_of("# Agent SDK overview\n\ntext", "s") == "Agent SDK overview"
+    assert title_of("沒有標題", "fallback") == "fallback"
+
+
+def test_sdk_banner_and_links():
+    body = "> ## Documentation Index\n> Fetch the index at: x\n> Use this file.\n\n# Hooks\n內容\n"
+    assert DOC_INDEX_BANNER.sub("", body, count=1) == "# Hooks\n內容\n"
+    index = ("- [Hooks](https://code.claude.com/docs/en/agent-sdk/hooks.md): x\n"
+             "- [Headless](https://code.claude.com/docs/en/headless.md): y\n")
+    assert SDK_LINK.findall(index) == ["https://code.claude.com/docs/en/agent-sdk/hooks.md"]
+```
+
+- [ ] **Step 2：確認測試失敗**
+
+Run：`uv run pytest tests/test_collect.py -v`
+Expected：FAIL，`ModuleNotFoundError: No module named 'lab.collect'`
+
+- [ ] **Step 3：實作 `src/lab/collect.py`**
+
+```python
+"""下載官方文件：LangChain／LangGraph／Deep Agents（langchain-ai/docs repo）與 Claude Agent SDK（code.claude.com）。"""
 from __future__ import annotations
 
+import io
 import re
-from concurrent.futures import ThreadPoolExecutor
+import tarfile
+import urllib.request
+from datetime import date
 
-from lab.common import CATEGORIES, CORPUS, FACTS, QTYPES, claude_json, norm, save_json
+from lab.common import CORPUS, DOCS_JSON, FRAMEWORKS, save_json, sha256
+
+LC_TARBALL = "https://codeload.github.com/langchain-ai/docs/tar.gz/main"
+LC_FRAMEWORKS = {"deepagents", "langchain", "langgraph"}
+SDK_INDEX = "https://code.claude.com/docs/llms.txt"
+SDK_LINK = re.compile(r"\((https://code\.claude\.com/docs/en/agent-sdk/[a-z0-9/-]+\.md)\)")
+# Agent SDK 每頁開頭都有一段固定的「Documentation Index」引言，把它去掉
+DOC_INDEX_BANNER = re.compile(r"\A(?:> .*\n)+\n?")
+
+
+def fetch(url: str) -> bytes:
+    req = urllib.request.Request(url, headers={"User-Agent": "retrieval-lab"})
+    with urllib.request.urlopen(req, timeout=120) as resp:
+        return resp.read()
+
+
+def title_of(body: str, fallback: str) -> str:
+    """標題：優先用 frontmatter 的 title，其次用第一個 # 標題。"""
+    fm = re.match(r"---\n(.*?)\n---", body, re.S)
+    if fm and (m := re.search(r"^title:\s*(.+)$", fm.group(1), re.M)):
+        return m.group(1).strip().strip("\"'")
+    if m := re.search(r"^# (.+)$", body, re.M):
+        return m.group(1).strip()
+    return fallback
+
+
+def langchain_pages(wanted: set[str]) -> list[tuple[str, str, str]]:
+    """回傳 (框架, 頁面路徑, 內文)。"""
+    pages = []
+    with tarfile.open(fileobj=io.BytesIO(fetch(LC_TARBALL)), mode="r:gz") as tar:
+        for member in tar.getmembers():
+            parts = member.name.split("/")   # docs-main/src/oss/<框架>/.../<頁>.mdx
+            if (member.isfile() and member.name.endswith(".mdx") and len(parts) > 4
+                    and parts[1:3] == ["src", "oss"] and parts[3] in wanted):
+                slug = "/".join(parts[4:])[: -len(".mdx")]
+                pages.append((parts[3], slug, tar.extractfile(member).read().decode("utf-8")))
+    return pages
+
+
+def sdk_pages() -> list[tuple[str, str, str]]:
+    urls = sorted(set(SDK_LINK.findall(fetch(SDK_INDEX).decode("utf-8"))))
+    pages = []
+    for url in urls:
+        body = DOC_INDEX_BANNER.sub("", fetch(url).decode("utf-8"), count=1)
+        pages.append(("agent-sdk", url.split("/agent-sdk/", 1)[1][: -len(".md")], body))
+    return pages
+
+
+def collect(only: list[str] | None = None, force: bool = False) -> None:
+    if DOCS_JSON.exists() and not force:
+        raise SystemExit("world/docs.json 已經存在。要重新下載請加 --force（舊結果會因 world_id 不同，自動不納入統計）")
+    wanted = set(only or FRAMEWORKS)
+    pages: list[tuple[str, str, str]] = []
+    if wanted & LC_FRAMEWORKS:
+        print("下載 langchain-ai/docs …")
+        pages += langchain_pages(wanted & LC_FRAMEWORKS)
+    if "agent-sdk" in wanted:
+        print("下載 Claude Agent SDK 文件 …")
+        pages += sdk_pages()
+    pages.sort(key=lambda p: (p[0], p[1]))
+    if CORPUS.exists():
+        for old in CORPUS.rglob("*.md"):
+            old.unlink()
+    docs = []
+    for category, slug, body in pages:
+        doc_id = f"{category}/{slug}"
+        body = body.strip() + "\n"
+        path = CORPUS / f"{doc_id}.md"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(body, encoding="utf-8")
+        docs.append({"id": doc_id, "title": title_of(body, slug), "category": category, "slug": slug,
+                     "chars": len(body), "sha": sha256(body)})
+    save_json(DOCS_JSON, {"collected_at": date.today().isoformat(), "docs": docs})
+    counts = {f: sum(1 for d in docs if d["category"] == f) for f in sorted(wanted)}
+    print(f"完成：{len(docs)} 頁（" + "、".join(f"{f} {n}" for f, n in counts.items()) + "）")
 ```
 
-- [ ] **Step 2：在 `src/lab/generate.py` 最後加上以下程式**
+- [ ] **Step 4：確認測試通過**
 
-```python
-SIZES = {True: {"docs": 20, "per_type": 2}, False: {"docs": 200, "per_type": 8}}
+Run：`uv run pytest tests/test_collect.py -v`
+Expected：2 passed
 
-DOC_SPEC = {
-    "type": "object",
-    "properties": {
-        "title": {"type": "string"},
-        "category": {"type": "string", "enum": CATEGORIES},
-        "slug": {"type": "string"},
-        "date": {"type": "string"},
-        "facts": {"type": "array", "items": {"type": "string"}},
-        "brief": {"type": "string"},
-    },
-    "required": ["title", "category", "slug", "date", "facts", "brief"],
-}
+- [ ] **Step 5：下載試跑用的文件（實際連網）**
 
-QUESTION_SCHEMA = {
-    "type": "object",
-    "properties": {"items": {"type": "array", "items": {
-        "type": "object",
-        "properties": {
-            "question": {"type": "string"},
-            "must_include": {"type": "array", "items": {"type": "string"}},
-            "must_not_include": {"type": "array", "items": {"type": "string"}},
-            "probe_terms": {"type": "array", "items": {"type": "string"}},
-            "gold": {"type": "array", "items": DOC_SPEC},
-            "extra": {"type": "array", "items": DOC_SPEC},
-        },
-        "required": ["question", "must_include", "must_not_include", "probe_terms", "gold", "extra"],
-    }}},
-    "required": ["items"],
-}
+Run：`uv run lab collect --only agent-sdk && head -c 400 world/corpus/agent-sdk/overview.md`
+Expected：
+- 印出 `完成：40 頁（agent-sdk 40）`。
+- overview.md 第一行是 `# Agent SDK overview`，前面沒有 `> ## Documentation Index` 引言。
 
-FILLER_SCHEMA = {
-    "type": "object",
-    "properties": {"items": {"type": "array", "items": {
-        "type": "object",
-        "properties": {**DOC_SPEC["properties"], "role": {"type": "string", "enum": ["distractor", "filler"]}},
-        "required": [*DOC_SPEC["required"], "role"],
-    }}},
-    "required": ["items"],
-}
-
-BODY_SCHEMA = {
-    "type": "object",
-    "properties": {"docs": {"type": "array", "items": {
-        "type": "object",
-        "properties": {"id": {"type": "string"}, "body": {"type": "string"}},
-        "required": ["id", "body"],
-    }}},
-    "required": ["docs"],
-}
-
-COMMON_RULES = f"""規則：
-- 全部使用繁體中文，可以夾雜少量英文術語。
-- 答案字串（must_include、must_not_include）要簡短明確，而且盡量在整個題庫中獨一無二：型號、3 位數以上的數字、日期或人名，例如「4200」「NT$1680」「RB-20」「2025-03-01」「林怡君」。避免只有 1–2 位數的純數字。
-- 答案字串不要帶單位或多餘的文字（寫「4200」，不要寫「4200 mAh」）。
-- 每個答案字串都要逐字出現在對應文件的 facts 裡。
-- category 只能是：{"、".join(CATEGORIES)}。
-- slug 只能用中文、英文、數字和連字號，可以帶年份，例如「XR-7-規格書」「出差補助辦法-2025」。
-- date 格式為 YYYY-MM-DD，介於 2023-01-01 和 2025-12-31 之間。
-- facts 寫成完整句子；brief 用一句話說明文件類型與寫作重點。"""
-
-TYPE_RULES = {
-    "lookup": "直接查找題：題目用詞與文件一致。gold 放 1 份文件；must_include 放 1–2 個答案字串；"
-              "must_not_include、probe_terms、extra 留空。",
-    "paraphrase": "換句話說題：題目刻意不用文件裡的關鍵詞，改用同義詞、口語說法或另一種語言"
-                  "（例如文件寫「退貨」，題目問「退費」；文件寫「SLA」，題目寫「服務等級協議」）。"
-                  "在 brief 寫明文件必須使用的原始用詞。gold 放 1 份文件；must_include 放 1–2 個答案字串；"
-                  "must_not_include、probe_terms、extra 留空。",
-    "version": "新舊版本題：同一主題有新舊兩版文件（例如 2024 版與 2025 版），關鍵數值不同。"
-               "gold 放新版文件；extra 放舊版文件；兩份的 date 不同，新版較晚。"
-               "must_include 放新版數值；must_not_include 放舊版數值。題目不要提到年份或版本。probe_terms 留空。",
-    "multi_doc": "跨文件題：題目同時問兩件事，這兩件事分別只寫在兩份不同的文件裡"
-                 "（例如 XR-7 的電池容量寫在規格書，保固月數寫在保固政策）。"
-                 "gold 放這 2 份文件；must_include 放 2 個答案字串，兩份文件各提供 1 個。"
-                 "must_not_include、probe_terms、extra 留空。",
-    "unanswerable": "題庫裡沒有的題：問一個確實存在的實體（產品、制度、部門），從來沒有被任何文件記載的屬性"
-                    "（例如某產品的重量）。gold 留空；extra 放 1 份與該實體相關、但完全不提該屬性的文件；"
-                    "must_include、must_not_include 留空；probe_terms 放 2 個字串：[實體名稱, 屬性關鍵詞]，"
-                    "例如 [\"LK-9\", \"重量\"]。",
-}
-
-
-def _ask_questions(qtype: str, n: int, used: list[str], model: str) -> list[dict]:
-    prompt = (f"{WORLD_BRIEF}\n\n請為檢索測驗設計 {n} 道題目，以及回答所需的文件規格。\n"
-              f"{TYPE_RULES[qtype]}\n{COMMON_RULES}\n"
-              f"- 不要重複以下已經用過的標題或答案：{'；'.join(used) or '（無）'}")
-    return claude_json(prompt, QUESTION_SCHEMA, model)["items"]
-
-
-def plan_questions(qtype: str, n: int, used: list[str], model: str) -> list[dict]:
-    """規劃 n 題；結構不符的題目丟掉重問，最多 3 次。會把用過的標題與答案加進 used。"""
-    items: list[dict] = []
-    for _ in range(3):
-        for item in _ask_questions(qtype, n - len(items), used, model):
-            if len(items) < n and check_item(qtype, item) is None:
-                items.append(item)
-                used += [s["title"] for s in item["gold"] + item["extra"]] + item["must_include"]
-        if len(items) == n:
-            return items
-    raise RuntimeError(f"{qtype} 題型規劃失敗：只拿到 {len(items)}/{n} 題")
-
-
-def plan_fillers(n: int, draft: dict, model: str, batch: int = 24) -> list[dict]:
-    """規劃 n 份背景文件（干擾文件與一般文件），不能包含能回答任何題目的資訊。"""
-    titles = [d["title"] for d in draft["docs"]]
-    guarded = "；".join(q["question"] for q in draft["questions"])
-    probes = "；".join("＋".join(q["probe_terms"]) for q in draft["questions"] if q["probe_terms"]) or "（無）"
-    items: list[dict] = []
-    for _ in range(n // batch + 5):
-        if len(items) >= n:
-            break
-        k = min(batch, n - len(items))
-        prompt = (f"{WORLD_BRIEF}\n\n請產生 {k} 份背景文件的規格（不用寫內文）。\n"
-                  "約一半是干擾文件（role=distractor）：主題跟既有文件相近，例如同系列的其他型號、"
-                  "其他年份的類似規章，但數值必須不同。\n"
-                  "另一半是一般文件（role=filler）：會議紀錄、公告、作業流程等。\n"
-                  f"{COMMON_RULES}\n"
-                  f"- 這些文件都不能包含能回答下列問題的資訊：{guarded}\n"
-                  f"- 不能同時提到以下實體與屬性的組合：{probes}\n"
-                  f"- 不要和既有標題重複：{'；'.join(titles + [i['title'] for i in items])}")
-        items += claude_json(prompt, FILLER_SCHEMA, model)["items"][:k]
-    if len(items) < n:
-        raise RuntimeError(f"背景文件規劃失敗：只拿到 {len(items)}/{n} 份")
-    return items
-
-
-def _write_batch(batch: list[dict], model: str) -> dict[str, str]:
-    specs = "\n\n".join(
-        f"id：{d['id']}\n標題：{d['title']}\n類別：{d['category']}\n日期：{d['date']}\n"
-        f"必須寫入的事實：{'；'.join(d['facts']) or '（無）'}\n寫作重點：{d['brief']}\n"
-        f"禁止出現的字詞：{'、'.join(d['avoid']) or '（無）'}"
-        for d in batch)
-    prompt = (f"{WORLD_BRIEF}\n\n請依照下列規格，替每一份文件寫出完整內文。\n"
-              "- 每份 300–700 字，繁體中文 Markdown。第一行是「# 標題」，第二行是「日期：YYYY-MM-DD」。\n"
-              "- 「必須寫入的事實」中的數字、型號、日期、人名，都要原樣出現在內文裡。\n"
-              "- 可以加入合理的細節，但不能寫出與這些事實矛盾的數值。\n"
-              "- 不要提到任何檔名或路徑（例如 .md、docs/）。\n"
-              "- 「禁止出現的字詞」一個都不能出現。\n"
-              f"- 回傳時 id 照抄。\n\n{specs}")
-    out = claude_json(prompt, BODY_SCHEMA, model)
-    wanted = {d["id"] for d in batch}
-    return {d["id"]: d["body"] for d in out["docs"] if d["id"] in wanted}
-
-
-def write_bodies(docs: list[dict], model: str, batch: int = 5, workers: int = 4) -> dict[str, str]:
-    """分批平行撰寫內文；某一批失敗時不中斷，交給驗證步驟重試。"""
-    def safe(part: list[dict]) -> dict[str, str]:
-        try:
-            return _write_batch(part, model)
-        except Exception as e:  # noqa: BLE001
-            print(f"  批次失敗（{', '.join(d['id'] for d in part)}）：{e}")
-            return {}
-
-    bodies: dict[str, str] = {}
-    with ThreadPoolExecutor(workers) as pool:
-        for result in pool.map(safe, [docs[i:i + batch] for i in range(0, len(docs), batch)]):
-            bodies.update(result)
-    return bodies
-
-
-def _apply_fixes(facts: dict, problems: list[dict]) -> set[str]:
-    """把要避開的字記到文件規格上，回傳要重寫的文件 id。"""
-    docs = {d["id"]: d for d in facts["docs"]}
-    redo: set[str] = set()
-    for p in problems:
-        if p["doc"] in docs:
-            redo.add(p["doc"])
-            if p["avoid"] and p["avoid"] not in docs[p["doc"]]["avoid"]:
-                docs[p["doc"]]["avoid"].append(p["avoid"])
-    return redo
-
-
-def save_world(facts: dict, bodies: dict[str, str]) -> None:
-    save_json(FACTS, facts)
-    CORPUS.mkdir(parents=True, exist_ok=True)
-    for old in CORPUS.glob("*.md"):
-        old.unlink()
-    for d in facts["docs"]:
-        if d["id"] in bodies:
-            (CORPUS / f"{d['id']}.md").write_text(bodies[d["id"]].strip() + "\n", encoding="utf-8")
-
-
-def generate(pilot: bool, model: str = "sonnet", force: bool = False) -> None:
-    if FACTS.exists() and not force:
-        raise SystemExit("world/facts.json 已經存在。要重新生成請加 --force（舊結果會因 world_id 不同，自動不納入統計）")
-    size = SIZES[pilot]
-    used: list[str] = []
-    planned: dict[str, list[dict]] = {}
-    for qtype in QTYPES:
-        print(f"規劃題目：{qtype} × {size['per_type']} …")
-        planned[qtype] = plan_questions(qtype, size["per_type"], used, model)
-    draft = assemble(planned, [], pilot)
-    n_fill = size["docs"] - len(draft["docs"])
-    print(f"規劃背景文件 × {max(n_fill, 0)} …")
-    facts = assemble(planned, plan_fillers(n_fill, draft, model) if n_fill > 0 else [], pilot)
-    print(f"撰寫 {len(facts['docs'])} 份文件 …")
-    bodies = write_bodies(facts["docs"], model)
-    problems = validate(facts, bodies)
-    for attempt in (1, 2):
-        if not problems:
-            break
-        redo = _apply_fixes(facts, problems)
-        print(f"第 {attempt} 次修正：重寫 {len(redo)} 份文件")
-        bodies.update(write_bodies([d for d in facts["docs"] if d["id"] in redo], model))
-        problems = validate(facts, bodies)
-    save_world(facts, bodies)
-    if problems:
-        for p in problems:
-            print(f"  ✗ {p['doc']} {p['kind']}：{p['detail']}")
-        raise SystemExit(f"還有 {len(problems)} 個問題。可以手動修改 world/ 後執行 lab build，或加 --force 重新生成")
-    print(f"完成：{len(facts['docs'])} 份文件、{len(facts['questions'])} 題，寫入 {FACTS.parent}")
-```
-
-- [ ] **Step 3：確認既有測試仍然通過**
-
-Run: `uv run pytest -v`
-Expected：27 passed（common 3 + trace 8 + score 9 + generate 7）
-
-- [ ] **Step 4：煙霧測試（真的呼叫一次 Haiku，花費約幾美分）**
-
-確認 `--json-schema` 能接受巢狀 schema，並回傳一題結構正確的題目。
-
-Run:
-```bash
-uv run python -c "
-from lab.generate import plan_questions
-items = plan_questions('lookup', 1, [], 'haiku')
-print(items[0]['question'], items[0]['must_include'], items[0]['gold'][0]['title'])
-"
-```
-Expected：印出一行題目、答案字串清單和文件標題，沒有 traceback。如果出現 `RuntimeError: claude -p 沒有回傳結構化結果`，先把 stdout 印出來檢查，再調整 schema。
-
-- [ ] **Step 5：Commit**
+- [ ] **Step 6：Commit**
 
 ```bash
-git add src/lab/generate.py
-git commit -m "feat: 用 claude -p 規劃題目、背景文件並撰寫內文"
+git add src/lab/collect.py tests/test_collect.py world/docs.json world/corpus
+git commit -m "feat: 下載官方文件；收錄試跑用的 Agent SDK 文件（40 頁）"
 ```
 
 ---
@@ -1311,8 +1238,8 @@ git commit -m "feat: 用 claude -p 規劃題目、背景文件並撰寫內文"
 ### Task 7：三組實驗資料夾（`build.py`）
 
 **Files:**
-- Create: `src/lab/build.py`
-- Test: `tests/test_build.py`
+- Create：`src/lab/build.py`
+- Test：`tests/test_build.py`
 
 - [ ] **Step 1：寫測試**
 
@@ -1321,37 +1248,43 @@ import json
 
 import pytest
 
-from lab.build import SETTINGS, layout, render_index, stage_problems
+from lab.build import SETTINGS, digest, layout, render_index, stage_problems
 
-FACTS = {"docs": [
-    {"id": "D001", "title": "XR-7 規格書", "category": "產品", "slug": "XR-7-規格書"},
-    {"id": "D002", "title": "補助|2025", "category": "人資", "slug": "補助-2025"},
-    {"id": "D003", "title": "週會", "category": "會議紀錄", "slug": "週會"},
+DOCS = {"docs": [
+    {"id": "langgraph/persistence", "title": "Persistence", "category": "langgraph", "slug": "persistence"},
+    {"id": "agent-sdk/hooks", "title": "Hooks|SDK", "category": "agent-sdk", "slug": "hooks"},
+    {"id": "langchain/frontend/overview", "title": "Frontend", "category": "langchain", "slug": "frontend/overview"},
 ]}
 
 
 def test_layout():
-    maps = layout(FACTS)
+    maps = layout(DOCS)
     assert sorted(maps["A-messy"].values()) == ["docs/doc_001.md", "docs/doc_002.md", "docs/doc_003.md"]
-    assert maps["B-organized"]["D002"] == "docs/人資/補助-2025.md"
+    assert maps["B-organized"]["langchain/frontend/overview"] == "docs/langchain/frontend/overview.md"
     assert maps["C-indexed"] == maps["B-organized"]
-    assert layout(FACTS) == maps   # 固定種子，可以重現
+    assert layout(DOCS) == maps   # 固定種子，可以重現
 
 
 def test_layout_rejects_duplicate_paths():
-    dup = {"docs": FACTS["docs"] + [{"id": "D004", "title": "x", "category": "產品", "slug": "XR-7-規格書"}]}
+    dup = {"docs": DOCS["docs"] + [{"id": "x", "title": "x", "category": "langgraph", "slug": "persistence"}]}
     with pytest.raises(ValueError):
         layout(dup)
 
 
 def test_render_index_escapes_pipes_and_sorts_by_path():
-    paths = layout(FACTS)["C-indexed"]
-    rows = {d["id"]: {"summary": "摘要|有直線", "keywords": ["補助", "per diem"]} for d in FACTS["docs"]}
-    lines = render_index(FACTS, paths, rows).splitlines()
+    paths = layout(DOCS)["C-indexed"]
+    rows = {d["id"]: {"summary": "摘要|有直線", "keywords": ["checkpointer", "檢查點"]} for d in DOCS["docs"]}
+    lines = render_index(DOCS, paths, rows).splitlines()
     assert lines[0] == "# 文件索引"
     assert [line.split(" | ")[0][2:] for line in lines[4:]] == sorted(paths.values())
     text = "\n".join(lines)
-    assert "補助／2025" in text and "摘要／有直線" in text and "補助、per diem" in text
+    assert "Hooks／SDK" in text and "摘要／有直線" in text and "checkpointer、檢查點" in text
+
+
+def test_digest_keeps_headings_and_limits_length():
+    body = "# Title\n" + "內容" * 3000 + "\n## Hooks\n### Timeout\n"
+    text = digest(body, limit=3000)
+    assert len(text) <= 3000 and "## Hooks" in text and "### Timeout" in text
 
 
 def _write_stage(root, maps, bodies):
@@ -1367,12 +1300,12 @@ def _write_stage(root, maps, bodies):
 
 
 def test_stage_problems_detects_differences(tmp_path):
-    maps = layout(FACTS)
-    bodies = {"D001": "a\n", "D002": "b\n", "D003": "c\n"}
+    maps = layout(DOCS)
+    bodies = {d["id"]: f"{d['id']}\n" for d in DOCS["docs"]}
     _write_stage(tmp_path, maps, bodies)
     clean = [p for p in stage_problems(tmp_path, maps, bodies) if "家目錄" not in p and "上層" not in p]
     assert clean == []
-    (tmp_path / "A-messy" / maps["A-messy"]["D001"]).write_text("改過\n", encoding="utf-8")
+    (tmp_path / "A-messy" / maps["A-messy"]["agent-sdk/hooks"]).write_text("改過\n", encoding="utf-8")
     (tmp_path / "B-organized" / "CLAUDE.md").write_text("x")
     problems = stage_problems(tmp_path, maps, bodies)
     assert any("A-messy" in p and "內文" in p for p in problems)
@@ -1381,7 +1314,7 @@ def test_stage_problems_detects_differences(tmp_path):
 
 - [ ] **Step 2：確認測試失敗**
 
-Run: `uv run pytest tests/test_build.py -v`
+Run：`uv run pytest tests/test_build.py -v`
 Expected：FAIL，`ModuleNotFoundError: No module named 'lab.build'`
 
 - [ ] **Step 3：實作 `src/lab/build.py`**
@@ -1397,9 +1330,8 @@ import threading
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-from lab.common import (CONDS, CORPUS, FACTS, INDEX_CACHE, MAPPING, claude_json, is_under_home,
-                        leaking_ancestors, load_json, save_json, sha256, stage_root)
-from lab.generate import validate
+from lab.common import (CONDS, INDEX_CACHE, MAPPING, claude_json, is_under_home, leaking_ancestors,
+                        load_bodies, load_json, load_world, save_json, sha256, stage_root)
 
 SETTINGS = {"permissions": {"deny": ["Bash", "Edit", "Write", "NotebookEdit", "WebFetch", "WebSearch"]}}
 
@@ -1408,11 +1340,11 @@ CLAUDE_MD = """# 資料查找指引
 - 同一主題有多個版本時，以日期最新的為準。
 """
 
-INDEX_PROMPT = """你是文件管理員。請替下面每一份文件寫一列索引：
-- summary：一句話（30 字以內）說明文件內容。
-- keywords：5–10 個關鍵字，包含文件中的重要名詞，以及讀者可能改用的同義詞、口語說法和中英文對照。
+INDEX_PROMPT = """你是技術文件管理員。下面每一份文件只附上開頭和所有標題。請替每份文件寫一列索引：
+- summary：一句繁體中文（40 字以內），說明這份文件在講什麼。
+- keywords：8–12 個關鍵字，包含文件裡重要的英文名詞（類別、函式、參數、功能名稱），以及對應的繁體中文說法、同義詞和口語說法。
 - path：原樣照抄文件標籤上的 path。
-只根據文件內容撰寫，不要編造。
+只根據提供的內容撰寫，不要編造。
 
 """
 
@@ -1428,15 +1360,15 @@ INDEX_SCHEMA = {
 }
 
 
-def layout(facts: dict, seed: int = 42) -> dict[str, dict[str, str]]:
-    """每一組的 doc_id → 相對路徑。A 用固定種子打亂編號；B、C 用類別資料夾＋slug。"""
-    ids = [d["id"] for d in facts["docs"]]
+def layout(world: dict, seed: int = 42) -> dict[str, dict[str, str]]:
+    """每一組的 doc_id → 相對路徑。A 用固定種子打亂編號；B、C 用「框架/頁面路徑」。"""
+    ids = [d["id"] for d in world["docs"]]
     shuffled = ids[:]
     random.Random(seed).shuffle(shuffled)
     messy = {doc_id: f"docs/doc_{i:03d}.md" for i, doc_id in enumerate(shuffled, 1)}
-    organized = {d["id"]: f"docs/{d['category']}/{d['slug']}.md" for d in facts["docs"]}
+    organized = {d["id"]: f"docs/{d['category']}/{d['slug']}.md" for d in world["docs"]}
     if len(set(organized.values())) != len(organized):
-        raise ValueError("B 組有重複的檔案路徑，請檢查 slug")
+        raise ValueError("B 組有重複的檔案路徑")
     return {"A-messy": messy, "B-organized": organized, "C-indexed": dict(organized)}
 
 
@@ -1444,28 +1376,34 @@ def _cell(text: str) -> str:
     return text.replace("|", "／").replace("\n", " ").strip()
 
 
-def render_index(facts: dict, paths: dict[str, str], rows: dict[str, dict]) -> str:
+def render_index(world: dict, paths: dict[str, str], rows: dict[str, dict]) -> str:
     lines = ["# 文件索引", "", "| 路徑 | 標題 | 摘要 | 關鍵字 |", "|---|---|---|---|"]
-    for d in sorted(facts["docs"], key=lambda d: paths[d["id"]]):
+    for d in sorted(world["docs"], key=lambda d: paths[d["id"]]):
         r = rows[d["id"]]
         lines.append(f"| {paths[d['id']]} | {_cell(d['title'])} | {_cell(r['summary'])} | "
                      f"{_cell('、'.join(r['keywords']))} |")
     return "\n".join(lines) + "\n"
 
 
-def index_rows(facts: dict, bodies: dict[str, str], paths: dict[str, str], model: str,
+def digest(body: str, limit: int = 3000) -> str:
+    """索引用的材料：開頭 1500 字元，加上所有標題行。整頁太長，不直接丟給模型。"""
+    heads = [line for line in body.splitlines() if line.startswith("#")]
+    return (body[:1500] + "\n…\n" + "\n".join(heads))[:limit]
+
+
+def index_rows(world: dict, bodies: dict[str, str], paths: dict[str, str], model: str,
                batch: int = 10, workers: int = 4) -> dict[str, dict]:
-    """盲建索引：每一批只給文件內容，完全不給題目。結果快取在 world/index_rows.json。"""
+    """盲建索引：每一批只給文件的開頭和標題，完全不給題目。結果快取在 world/index_rows.json。"""
     cache = load_json(INDEX_CACHE) if INDEX_CACHE.exists() else {}
 
     def stale(doc_id: str) -> bool:
         return cache.get(doc_id, {}).get("sha") != sha256(bodies[doc_id])
 
-    todo = [d["id"] for d in facts["docs"] if stale(d["id"])]
+    todo = [d["id"] for d in world["docs"] if stale(d["id"])]
     lock = threading.Lock()
 
     def work(ids: list[str]) -> None:
-        docs = "\n\n".join(f'<document path="{paths[i]}">\n{bodies[i]}\n</document>' for i in ids)
+        docs = "\n\n".join(f'<document path="{paths[i]}">\n{digest(bodies[i])}\n</document>' for i in ids)
         try:
             out = claude_json(INDEX_PROMPT + docs, INDEX_SCHEMA, model)
         except Exception as e:  # noqa: BLE001
@@ -1482,14 +1420,10 @@ def index_rows(facts: dict, bodies: dict[str, str], paths: dict[str, str], model
         print(f"盲建索引：{len(todo)} 份文件 …")
         with ThreadPoolExecutor(workers) as pool:
             list(pool.map(work, [todo[i:i + batch] for i in range(0, len(todo), batch)]))
-    missing = [d["id"] for d in facts["docs"] if stale(d["id"])]
+    missing = [d["id"] for d in world["docs"] if stale(d["id"])]
     if missing:
         raise SystemExit(f"這些文件沒有索引，請重跑 lab build：{', '.join(missing)}")
     return cache
-
-
-def load_bodies(facts: dict) -> dict[str, str]:
-    return {d["id"]: (CORPUS / f"{d['id']}.md").read_text(encoding="utf-8") for d in facts["docs"]}
 
 
 def stage_problems(root: Path, maps: dict, bodies: dict[str, str]) -> list[str]:
@@ -1514,15 +1448,13 @@ def stage_problems(root: Path, maps: dict, bodies: dict[str, str]) -> list[str]:
 
 
 def build(model: str = "sonnet") -> None:
-    facts = load_json(FACTS)
-    bodies = load_bodies(facts)
-    if problems := validate(facts, bodies):
-        raise SystemExit("事實表驗證失敗：\n" + "\n".join(f"- {p['doc']} {p['kind']}：{p['detail']}" for p in problems))
+    world = load_world()
+    bodies = load_bodies(world)
     root = stage_root()
     if is_under_home(root):
         raise SystemExit(f"stage 資料夾不能在家目錄底下：{root}（用 LAB_STAGE 換位置）")
-    maps = layout(facts)
-    rows = index_rows(facts, bodies, maps["C-indexed"], model)
+    maps = layout(world)
+    rows = index_rows(world, bodies, maps["C-indexed"], model)
     for cond in CONDS:
         cdir = root / cond
         if cdir.exists():
@@ -1533,17 +1465,17 @@ def build(model: str = "sonnet") -> None:
             target.write_text(bodies[doc_id], encoding="utf-8")
         save_json(cdir / ".claude" / "settings.json", SETTINGS)
     (root / "C-indexed" / "CLAUDE.md").write_text(CLAUDE_MD, encoding="utf-8")
-    (root / "C-indexed" / "INDEX.md").write_text(render_index(facts, maps["C-indexed"], rows), encoding="utf-8")
+    (root / "C-indexed" / "INDEX.md").write_text(render_index(world, maps["C-indexed"], rows), encoding="utf-8")
     save_json(MAPPING, maps)
     if problems := stage_problems(root, maps, bodies):
         raise SystemExit("建置後檢查失敗：\n" + "\n".join(f"- {p}" for p in problems))
-    print(f"完成：{root}（{len(facts['docs'])} 份文件 × 3 組）")
+    print(f"完成：{root}（{len(world['docs'])} 份文件 × 3 組）")
 ```
 
 - [ ] **Step 4：確認測試通過**
 
-Run: `uv run pytest tests/test_build.py -v`
-Expected：4 passed
+Run：`uv run pytest tests/test_build.py -v`
+Expected：5 passed
 
 - [ ] **Step 5：Commit**
 
@@ -1554,11 +1486,11 @@ git commit -m "feat: 建立三組實驗資料夾並盲建索引"
 
 ---
 
-### Task 8：評測執行（`run.py`）
+### Task 8：評測與閉卷對照（`run.py`）
 
 **Files:**
-- Create: `src/lab/run.py`
-- Test: `tests/test_run.py`
+- Create：`src/lab/run.py`
+- Test：`tests/test_run.py`
 
 - [ ] **Step 1：寫測試**
 
@@ -1578,6 +1510,8 @@ def test_ask_cmd_has_isolation_flags():
     assert cmd[cmd.index("--tools") + 1] == "Read,Grep,Glob"
     assert cmd[cmd.index("--effort") + 1] == "medium"
     assert json.loads(cmd[cmd.index("--json-schema") + 1]) == ANSWER_SCHEMA
+    closed = ask_cmd("問題", "haiku", "medium", tools="")
+    assert closed[closed.index("--tools") + 1] == ""
 
 
 def test_done_keys_filters_world_model_effort_status():
@@ -1594,30 +1528,40 @@ def test_done_keys_filters_world_model_effort_status():
 
 - [ ] **Step 2：確認測試失敗**
 
-Run: `uv run pytest tests/test_run.py -v`
+Run：`uv run pytest tests/test_run.py -v`
 Expected：FAIL，`ModuleNotFoundError: No module named 'lab.run'`
 
 - [ ] **Step 3：實作 `src/lab/run.py`**
 
 ```python
-"""跑評測：每一題在每一組的資料夾裡執行一次 claude -p，結果附加到 results/results.jsonl。"""
+"""評測：每題在每一組的資料夾裡執行一次 claude -p；閉卷組則在空資料夾、不開工具。結果附加到 results/results.jsonl。"""
 from __future__ import annotations
 
 import json
 import random
 import subprocess
+import tempfile
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
+from functools import partial
+from pathlib import Path
 
-from lab.build import load_bodies, stage_problems
-from lab.common import (CONDS, FACTS, ISOLATION, MAPPING, RESULTS_JSONL, RUNS, load_json, read_rows,
-                        stage_root, world_id)
+from lab.build import stage_problems
+from lab.common import (CLOSED, CONDS, ISOLATION, MAPPING, RESULTS_JSONL, RUNS, is_under_home, leaking_ancestors,
+                        load_bodies, load_json, load_world, read_rows, stage_root, world_id)
 from lab.trace import isolation_problems, parse_stream, summarize
+from lab.world import check_questions
 
 PROMPT = """你是公司內部的資料查詢助理。請只根據目前資料夾裡的文件回答下面的問題，不要憑自己的知識。
 如果文件中找不到答案，found 填 false，answer 說明找不到。
 sources 列出你實際用來回答的文件路徑（相對於目前資料夾）。
 數字請用阿拉伯數字。
+
+問題：{question}"""
+
+CLOSED_PROMPT = """請不要查任何資料，直接憑你自己的知識回答下面的問題。
+如果你不知道或不確定，found 填 false，answer 說明不知道。
+sources 留空。數字請用阿拉伯數字。
 
 問題：{question}"""
 
@@ -1632,10 +1576,9 @@ ANSWER_SCHEMA = {
 PREFLIGHT_PROMPT = "這是連線檢查：不要使用任何工具，直接回答 answer=ok、sources 留空、found=false。"
 
 
-def ask_cmd(prompt: str, model: str, effort: str) -> list[str]:
-    return ["claude", "-p", prompt, "--model", model, "--effort", effort,
-            "--tools", "Read,Grep,Glob", "--output-format", "stream-json", "--verbose",
-            "--include-hook-events",
+def ask_cmd(prompt: str, model: str, effort: str, tools: str = "Read,Grep,Glob") -> list[str]:
+    return ["claude", "-p", prompt, "--model", model, "--effort", effort, "--tools", tools,
+            "--output-format", "stream-json", "--verbose", "--include-hook-events",
             "--json-schema", json.dumps(ANSWER_SCHEMA, ensure_ascii=False), *ISOLATION]
 
 
@@ -1645,14 +1588,61 @@ def done_keys(rows: list[dict], wid: str, model: str, effort: str) -> set[tuple[
             if r["world_id"] == wid and r["model"] == model and r["effort"] == effort and r["status"] == "ok"}
 
 
+def _call(cmd: list[str], cwd: Path | str, timeout: int) -> tuple[str, str | None]:
+    """執行一次 claude -p，回傳 (stdout, 錯誤訊息；沒有錯誤時是 None)。"""
+    try:
+        proc = subprocess.run(cmd, cwd=cwd, stdin=subprocess.DEVNULL, capture_output=True, text=True,
+                              timeout=timeout)
+    except subprocess.TimeoutExpired as e:
+        out = e.stdout.decode("utf-8", "replace") if isinstance(e.stdout, bytes) else (e.stdout or "")
+        return out, f"逾時（{timeout} 秒）"
+    return proc.stdout, (f"exit {proc.returncode}：{proc.stderr[-300:]}" if proc.returncode else None)
+
+
+def _record(wid: str, model: str, effort: str, rnd: int, cond: str, qid: str, out: str, error: str | None,
+            roots: list[str], known: set[str]) -> dict:
+    """存下原始紀錄，並整理成 results.jsonl 的一列。"""
+    raw = RUNS / wid / f"{model}-{effort}" / f"r{rnd}" / cond / f"{qid}.jsonl"
+    raw.parent.mkdir(parents=True, exist_ok=True)
+    raw.write_text(out, encoding="utf-8")
+    row = summarize(parse_stream(out), roots, known)
+    if error:
+        row["status"], row["error"] = "error", error
+    return {"world_id": wid, "model": model, "effort": effort, "round": rnd, "cond": cond, "qid": qid,
+            "ts": datetime.now().isoformat(timespec="seconds"), **row}
+
+
+def _execute(jobs: list, workers: int) -> None:
+    """平行執行 jobs（每個都會回傳一列結果），邊完成邊寫入 results.jsonl。"""
+    RESULTS_JSONL.parent.mkdir(parents=True, exist_ok=True)
+    with ThreadPoolExecutor(workers) as pool:
+        futures = [pool.submit(job) for job in jobs]
+        for i, fut in enumerate(as_completed(futures), 1):
+            row = fut.result()
+            with RESULTS_JSONL.open("a", encoding="utf-8") as f:
+                f.write(json.dumps(row, ensure_ascii=False) + "\n")
+            mark = "✓" if row["status"] == "ok" else f"✗ {row['error']}"
+            print(f"  [{i}/{len(jobs)}] {row['cond']} {row['qid']} {mark}")
+
+
+def _questions() -> list[dict]:
+    """取得題目；沒有題目，或沒通過 lab check，就停下來。"""
+    world = load_world()
+    if not world["questions"]:
+        raise SystemExit("還沒有題目，請先依照 docs/codex-questions.md 出題")
+    problems, _ = check_questions(world, load_bodies(world))
+    if problems:
+        raise SystemExit(f"題目還有 {len(problems)} 個問題，請先執行 uv run lab check")
+    return world["questions"]
+
+
 def preflight(maps: dict, model: str, effort: str) -> None:
-    """開跑前檢查（設計第 6.2 節）。每組各用一次檢查呼叫確認隔離。任何一項不通過就整輪中止。"""
+    """開跑前檢查（設計第 6.3 節）：stage 狀態，以及每組一次檢查呼叫。"""
     root = stage_root()
-    problems = stage_problems(root, maps, load_bodies(load_json(FACTS)))
+    problems = stage_problems(root, maps, load_bodies(load_world()))
     for cond in CONDS:
-        proc = subprocess.run(ask_cmd(PREFLIGHT_PROMPT, model, effort), cwd=root / cond,
-                              stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=180)
-        problems += [f"{cond}：{p}" for p in isolation_problems(parse_stream(proc.stdout))]
+        out, _ = _call(ask_cmd(PREFLIGHT_PROMPT, model, effort), root / cond, 180)
+        problems += [f"{cond}：{p}" for p in isolation_problems(parse_stream(out))]
     if problems:
         raise SystemExit("開跑前檢查失敗：\n" + "\n".join(f"- {p}" for p in problems))
     print("開跑前檢查通過")
@@ -1661,60 +1651,60 @@ def preflight(maps: dict, model: str, effort: str) -> None:
 def ask_one(rnd: int, cond: str, q: dict, paths: dict[str, str], model: str, effort: str,
             timeout: int, wid: str) -> dict:
     cdir = stage_root() / cond
-    raw = RUNS / wid / f"{model}-{effort}" / f"r{rnd}" / cond / f"{q['id']}.jsonl"
-    raw.parent.mkdir(parents=True, exist_ok=True)
-    error = None
-    try:
-        proc = subprocess.run(ask_cmd(PROMPT.format(question=q["question"]), model, effort),
-                              cwd=cdir, stdin=subprocess.DEVNULL, capture_output=True, text=True,
-                              timeout=timeout)
-        out = proc.stdout
-        if proc.returncode != 0:
-            error = f"exit {proc.returncode}：{proc.stderr[-300:]}"
-    except subprocess.TimeoutExpired as e:
-        out = e.stdout.decode("utf-8", "replace") if isinstance(e.stdout, bytes) else (e.stdout or "")
-        error = f"逾時（{timeout} 秒）"
-    raw.write_text(out, encoding="utf-8")
-    row = summarize(parse_stream(out), [str(cdir), str(cdir.resolve())], set(paths.values()))
-    if error:
-        row["status"], row["error"] = "error", error
-    return {"world_id": wid, "model": model, "effort": effort, "round": rnd, "cond": cond,
-            "qid": q["id"], "ts": datetime.now().isoformat(timespec="seconds"), **row}
+    out, error = _call(ask_cmd(PROMPT.format(question=q["question"]), model, effort), cdir, timeout)
+    return _record(wid, model, effort, rnd, cond, q["id"], out, error,
+                   [str(cdir), str(cdir.resolve())], set(paths.values()))
 
 
 def run(rounds: int, model: str = "haiku", effort: str = "medium", workers: int = 4, timeout: int = 180) -> None:
-    facts, maps, wid = load_json(FACTS), load_json(MAPPING), world_id()
+    questions, maps, wid = _questions(), load_json(MAPPING), world_id()
     preflight(maps, model, effort)
     done = done_keys(read_rows(), wid, model, effort)
-    RESULTS_JSONL.parent.mkdir(parents=True, exist_ok=True)
     for rnd in range(1, rounds + 1):
-        tasks = [(cond, q) for cond in CONDS for q in facts["questions"] if (rnd, cond, q["id"]) not in done]
+        tasks = [(cond, q) for cond in CONDS for q in questions if (rnd, cond, q["id"]) not in done]
         if not tasks:
             print(f"第 {rnd} 輪已經完成，跳過")
             continue
         random.Random(rnd).shuffle(tasks)
         print(f"第 {rnd} 輪：{len(tasks)} 次呼叫")
-        with ThreadPoolExecutor(workers) as pool:
-            futures = [pool.submit(ask_one, rnd, cond, q, maps[cond], model, effort, timeout, wid)
-                       for cond, q in tasks]
-            for i, fut in enumerate(as_completed(futures), 1):
-                row = fut.result()
-                with RESULTS_JSONL.open("a", encoding="utf-8") as f:
-                    f.write(json.dumps(row, ensure_ascii=False) + "\n")
-                mark = "✓" if row["status"] == "ok" else f"✗ {row['error']}"
-                print(f"  [{i}/{len(tasks)}] {row['cond']} {row['qid']} {mark}")
+        _execute([partial(ask_one, rnd, cond, q, maps[cond], model, effort, timeout, wid) for cond, q in tasks],
+                 workers)
+
+
+def run_closed(model: str = "haiku", effort: str = "medium", workers: int = 4, timeout: int = 180) -> None:
+    """閉卷對照：每題在空資料夾裡、不開工具問一次，找出憑記憶就答得出來的題目。"""
+    questions, wid = _questions(), world_id()
+    done = done_keys(read_rows(), wid, model, effort)
+    todo = [q for q in questions if (1, CLOSED, q["id"]) not in done]
+    if not todo:
+        print("閉卷對照已經完成")
+        return
+    with tempfile.TemporaryDirectory() as tmp:
+        if is_under_home(Path(tmp)) or leaking_ancestors(Path(tmp)):
+            raise SystemExit(f"暫存資料夾不適合當閉卷環境：{tmp}")
+        out, _ = _call(ask_cmd(PREFLIGHT_PROMPT, model, effort, tools=""), tmp, 180)
+        if problems := isolation_problems(parse_stream(out), {"StructuredOutput"}):
+            raise SystemExit("閉卷檢查失敗：\n" + "\n".join(f"- {p}" for p in problems))
+        print(f"閉卷對照：{len(todo)} 題")
+
+        def job(q: dict) -> dict:
+            out, error = _call(ask_cmd(CLOSED_PROMPT.format(question=q["question"]), model, effort, tools=""),
+                               tmp, timeout)
+            return _record(wid, model, effort, 1, CLOSED, q["id"], out, error, [tmp], set())
+
+        _execute([partial(job, q) for q in todo], workers)
 ```
 
 - [ ] **Step 4：確認測試通過**
 
-Run: `uv run pytest tests/test_run.py -v`
+Run：`uv run pytest tests/test_run.py -v`
 Expected：2 passed
 
 - [ ] **Step 5：Commit**
 
 ```bash
 git add src/lab/run.py tests/test_run.py
-git commit -m "feat: 評測執行（開跑前檢查、平行呼叫、可續跑）"
+git commit -m "feat: 評測與閉卷對照（開跑前檢查、平行呼叫、可續跑）"
 ```
 
 ---
@@ -1722,13 +1712,13 @@ git commit -m "feat: 評測執行（開跑前檢查、平行呼叫、可續跑�
 ### Task 9：統計與網頁資料（`report.py`）
 
 **Files:**
-- Create: `src/lab/report.py`
-- Test: `tests/test_report.py`
+- Create：`src/lab/report.py`
+- Test：`tests/test_report.py`
 
 - [ ] **Step 1：寫測試**
 
 ```python
-from lab.report import aggregate
+from lab.report import aggregate, memorized_qids
 
 
 def r(cond, qid, rnd, correct, qtype="lookup", **kw):
@@ -1760,11 +1750,21 @@ def test_aggregate_rates_majority_and_pairs():
 def test_majority_tie_is_unstable():
     rows = [r("A-messy", "Q1", 1, True), r("A-messy", "Q1", 2, False)]
     assert aggregate(rows)["majority"]["Q1"]["A-messy"] is None
+
+
+def test_memorized_qids():
+    questions = {"Q1": {"type": "lookup", "answerable": True, "must_include": ["4200"]},
+                 "Q2": {"type": "lookup", "answerable": True, "must_include": ["999"]},
+                 "Q3": {"type": "unanswerable", "answerable": False, "must_include": []}}
+    closed = [{"qid": "Q1", "answer": "4200", "found": True}, {"qid": "Q2", "answer": "不知道", "found": False},
+              {"qid": "Q3", "answer": "不知道", "found": False}]
+    assert memorized_qids(questions, closed) == {"Q1"}   # 不可回答題不算「憑記憶」
+    assert memorized_qids(questions, []) is None
 ```
 
 - [ ] **Step 2：確認測試失敗**
 
-Run: `uv run pytest tests/test_report.py -v`
+Run：`uv run pytest tests/test_report.py -v`
 Expected：FAIL，`ModuleNotFoundError: No module named 'lab.report'`
 
 - [ ] **Step 3：實作 `src/lab/report.py`**
@@ -1778,9 +1778,9 @@ from datetime import datetime
 from pathlib import Path
 from statistics import mean
 
-from lab.common import (COND_LABELS, CONDS, FACTS, MAPPING, QTYPE_LABELS, QTYPES, RESULTS, load_json,
-                        read_rows, save_json, stage_root, world_id)
-from lab.score import score
+from lab.common import (CLOSED, COND_LABELS, CONDS, MAPPING, QTYPE_LABELS, QTYPES, RESULTS, load_json,
+                        load_world, read_rows, save_json, stage_root, world_id)
+from lab.score import answer_correct, score
 
 METRICS = [("correct", "答對率"), ("hallucinated", "幻覺率"), ("retrieved", "檢索命中率"),
            ("citation_hit", "引用命中率"), ("index_used", "讀了索引")]
@@ -1803,8 +1803,21 @@ def scored_rows(rows: list[dict], questions: dict[str, dict], maps: dict) -> lis
             for r in rows]
 
 
+def closed_rows_scored(rows: list[dict], questions: dict[str, dict]) -> list[dict]:
+    return [{**r, "type": questions[r["qid"]]["type"], "correct": answer_correct(r, questions[r["qid"]]),
+             "files_read_n": 0, "duration_s": (r["duration_ms"] or 0) / 1000} for r in rows]
+
+
+def memorized_qids(questions: dict[str, dict], closed_rows: list[dict]) -> set[str] | None:
+    """閉卷就答對的可回答題。還沒跑閉卷對照時回傳 None。"""
+    if not closed_rows:
+        return None
+    return {r["qid"] for r in closed_rows
+            if questions[r["qid"]]["answerable"] and answer_correct(r, questions[r["qid"]])}
+
+
 def aggregate(rows: list[dict]) -> dict:
-    """rows：已評分且 status=ok 的列。回傳主表、題型表、逐題答對比例、多數決與成對比較。"""
+    """rows：已評分、status=ok 的列。回傳主表、題型表、逐題答對比例、多數決與成對比較。"""
     rounds = sorted({r["round"] for r in rows})
     keys = [k for k, _ in METRICS + EFFICIENCY]
     summary: dict[str, dict] = {}
@@ -1847,20 +1860,33 @@ def _num(v: float | None, digits: int = 1) -> str:
     return "—" if v is None else f"{v:.{digits}f}"
 
 
-def render_markdown(agg: dict, model: str, effort: str, errors: dict[str, int]) -> str:
+def _summary_table(agg: dict, errors: dict[str, int]) -> list[str]:
     cols = METRICS + EFFICIENCY
-    lines = ["# Retrieval Lab 結果", "",
-             f"- 模型：{model}（effort {effort}）",
-             f"- 題數 n = {agg['n_questions']}，輪數 {len(agg['rounds'])}",
-             f"- 產生時間：{datetime.now():%Y-%m-%d %H:%M}", "",
-             "## 總表（各輪平均，括號內為各輪最低–最高）", "",
-             "| 組別 | " + " | ".join(label for _, label in cols) + " | 錯誤筆數 |",
+    lines = ["| 組別 | " + " | ".join(label for _, label in cols) + " | 錯誤筆數 |",
              "|" + "---|" * (len(cols) + 2)]
     for cond in CONDS:
         s = agg["summary"][cond]
         cells = [f"{_pct(s[k]['mean'])}（{_pct(s[k]['min'])}–{_pct(s[k]['max'])}）" for k, _ in METRICS]
         cells += [_num(s[k]["mean"], 4 if k == "cost_usd" else 1) for k, _ in EFFICIENCY]
         lines.append(f"| {COND_LABELS[cond]} | " + " | ".join(cells) + f" | {errors.get(cond, 0)} |")
+    return lines
+
+
+def render_markdown(agg: dict, need: dict | None, memo: dict | None, model: str, effort: str,
+                    errors: dict[str, int]) -> str:
+    """memo：{"answerable": 可回答題數, "memorized": 閉卷答對題數}；還沒跑閉卷時是 None。"""
+    lines = ["# Retrieval Lab 結果", "",
+             f"- 模型：{model}（effort {effort}）",
+             f"- 題數 n = {agg['n_questions']}，輪數 {len(agg['rounds'])}",
+             f"- 產生時間：{datetime.now():%Y-%m-%d %H:%M}"]
+    if memo is None:
+        lines.append("- 閉卷對照：還沒執行（uv run lab closed）")
+    else:
+        lines.append(f"- 閉卷對照：{memo['answerable']} 題可回答題中，有 {memo['memorized']} 題不給文件也答對")
+    lines += ["", "## 總表：全部題目（各輪平均，括號內為各輪最低–最高）", "", *_summary_table(agg, errors)]
+    if need is not None:
+        lines += ["", f"## 總表：需要查文件的題目（排除憑記憶答對的題目，n = {need['n_questions']}）", "",
+                  *_summary_table(need, errors)]
     lines += ["", "## 各題型答對率", "",
               "| 組別 | " + " | ".join(QTYPE_LABELS[t] for t in QTYPES) + " |",
               "|" + "---|" * (len(QTYPES) + 1)]
@@ -1888,9 +1914,11 @@ def _clean(text: str) -> str:
     return text.replace(str(stage_root()), "").replace(str(Path.home()), "~")
 
 
-def dashboard(agg: dict, rows: list[dict], facts: dict, maps: dict, model: str, effort: str) -> dict:
+def dashboard(agg: dict, need: dict | None, memorized: set[str] | None, rows: list[dict], closed: list[dict],
+              world: dict, maps: dict, model: str, effort: str) -> dict:
+    closed_by_q = {r["qid"]: r for r in closed}
     questions = []
-    for q in facts["questions"]:
+    for q in world["questions"]:
         results = {cond: [{"round": r["round"], "answer": _clean(r["answer"]), "found": r["found"],
                            "correct": r["correct"], "retrieved": r["retrieved"],
                            "index_used": r.get("index_used"), "files_read": r["files_read"],
@@ -1899,120 +1927,120 @@ def dashboard(agg: dict, rows: list[dict], facts: dict, maps: dict, model: str, 
                           for r in sorted(rows, key=lambda r: r["round"])
                           if r["qid"] == q["id"] and r["cond"] == cond]
                    for cond in CONDS}
+        c = closed_by_q.get(q["id"])
         questions.append({"id": q["id"], "type": q["type"], "question": q["question"],
                           "gold_answer": "、".join(q["must_include"]) or "（文件中沒有，應該回答找不到）",
                           "gold_files": {cond: [maps[cond][d] for d in q["gold_docs"]] for cond in CONDS},
+                          "memorized": memorized is not None and q["id"] in memorized,
+                          "closed": None if c is None else {"answer": _clean(c["answer"]), "found": c["found"],
+                                                            "correct": c["correct"]},
                           "results": results})
     return {"generated_at": datetime.now().isoformat(timespec="minutes"), "model": model, "effort": effort,
             "claude_versions": sorted({r["claude_version"] for r in rows if r.get("claude_version")}),
             "n_questions": agg["n_questions"], "rounds": agg["rounds"],
+            "memorized_count": None if memorized is None else len(memorized),
             "conds": [{"id": c, "label": COND_LABELS[c]} for c in CONDS],
             "qtypes": [{"id": t, "label": QTYPE_LABELS[t]} for t in QTYPES],
-            "summary": agg["summary"], "by_type": agg["by_type"], "paired": agg["paired"],
-            "questions": questions}
+            "summary": agg["summary"], "summary_need_docs": need["summary"] if need else None,
+            "n_need_docs": need["n_questions"] if need else None,
+            "by_type": agg["by_type"], "paired": agg["paired"], "questions": questions}
 
 
 def report(model: str = "haiku", effort: str = "medium") -> None:
-    facts, maps, wid = load_json(FACTS), load_json(MAPPING), world_id()
+    world, maps, wid = load_world(), load_json(MAPPING), world_id()
+    questions = {q["id"]: q for q in world["questions"]}
     rows = [r for r in read_rows() if r["world_id"] == wid and r["model"] == model and r["effort"] == effort]
-    ok = [r for r in rows if r["status"] == "ok"]
+    main = [r for r in rows if r["cond"] in CONDS]
+    ok = [r for r in main if r["status"] == "ok"]
     if not ok:
         raise SystemExit("還沒有可用的結果，請先執行 lab run")
     ok_keys = {(r["round"], r["cond"], r["qid"]) for r in ok}
-    errors = {c: len({(r["round"], r["qid"]) for r in rows if r["cond"] == c and r["status"] != "ok"
+    errors = {c: len({(r["round"], r["qid"]) for r in main if r["cond"] == c and r["status"] != "ok"
                       and (r["round"], r["cond"], r["qid"]) not in ok_keys}) for c in CONDS}
-    scored = scored_rows(ok, {q["id"]: q for q in facts["questions"]}, maps)
+    closed = closed_rows_scored([r for r in rows if r["cond"] == CLOSED and r["status"] == "ok"], questions)
+    memorized = memorized_qids(questions, closed)
+    scored = scored_rows(ok, questions, maps)
     agg = aggregate(scored)
+    need = None if memorized is None else aggregate([r for r in scored if r["qid"] not in memorized])
+    memo = None if memorized is None else {"answerable": sum(1 for q in questions.values() if q["answerable"]),
+                                           "memorized": len(memorized)}
     RESULTS.mkdir(parents=True, exist_ok=True)
-    text = render_markdown(agg, model, effort, errors)
+    text = render_markdown(agg, need, memo, model, effort, errors)
     (RESULTS / "report.md").write_text(text, encoding="utf-8")
-    write_csv(RESULTS / "results.csv", scored)
-    save_json(RESULTS / "dashboard.json", dashboard(agg, scored, facts, maps, model, effort))
+    write_csv(RESULTS / "results.csv", scored + closed)
+    save_json(RESULTS / "dashboard.json", dashboard(agg, need, memorized, scored, closed, world, maps, model, effort))
     print(text)
 ```
 
 - [ ] **Step 4：確認全部測試通過**
 
-Run: `uv run pytest -v`
-Expected：35 passed（common 3 + trace 8 + score 9 + generate 7 + build 4 + run 2 + report 2）
+Run：`uv run pytest -v`
+Expected：38 passed（common 3、trace 9、score 11、world 3、collect 2、build 5、run 2、report 3）
 
 - [ ] **Step 5：Commit**
 
 ```bash
 git add src/lab/report.py tests/test_report.py
-git commit -m "feat: 統計報表、CSV 與網頁資料"
+git commit -m "feat: 統計報表、閉卷子集、CSV 與網頁資料"
 ```
 
 ---
 
-### Task 10：試跑——生成與審題
+### Task 10：試跑——Codex 出題與審題
 
-這一步會實際呼叫 Sonnet，約十幾次。
+- [ ] **Step 1：停下來，請使用者決定由誰執行 Codex**
 
-- [ ] **Step 1：生成試跑規模的世界**
+Codex 會使用使用者的 OpenAI 帳號額度，所以要先問使用者：
+- 自己執行 Codex，或
+- 授權 Claude 執行以下指令：
 
-Run: `uv run lab generate --pilot`
-Expected：最後一行是 `完成：20 份文件、10 題，寫入 …/world`
+```bash
+codex exec --full-auto "請依照 docs/codex-questions.md 出題。這次是試跑：出 10 題，每種題型 2 題。"
+```
 
-如果結尾是 `還有 N 個問題`：
-- 問題少，就手動修改 `world/corpus/Dxxx.md` 或 `world/facts.json`。
-- 問題多，就執行 `uv run lab generate --pilot --force` 重新生成。
+- [ ] **Step 2：檢查題目**
 
-- [ ] **Step 2：列出題目給使用者審閱**
+Run：`uv run lab check`
+Expected：第一行是 `文件 40 份，題目 10 題：…`，最後一行是 `沒有問題`，或 `沒有問題（有 N 個提醒…）`。
+如果有「問題」，就把輸出交回給 Codex 修正，修完重新檢查。
+
+- [ ] **Step 3：列出題目**
 
 Run:
 ```bash
-jq -r '.questions[] | "\(.id)｜\(.type)｜\(.question)｜答案：\(.must_include | join("、"))｜舊值：\(.must_not_include | join("、"))｜探測：\(.probe_terms | join("＋"))"' world/facts.json
+jq -r '.[] | "\(.id)｜\(.type)｜\(.question)｜答案：\(.must_include | join("、"))｜舊寫法：\(.must_not_include | join("、"))｜gold：\(.gold_docs | join(", "))｜探測：\(.probe_terms | join("＋"))"' world/questions.json
 ```
 
-再列出「答案字串也出現在非 gold 文件」的情況。這種情況下，Claude 可能從別份文件答對，檢索命中卻記為未命中：
+- [ ] **Step 4：停下來，請使用者審題**
+
+把題目清單和 `lab check` 印出的所有提醒交給使用者，請他確認題目是否合理、答案是否明確。使用者同意後才繼續。
+
+- [ ] **Step 5：Commit**
 
 ```bash
-uv run python -c "
-from lab.build import load_bodies
-from lab.common import FACTS, load_json
-from lab.generate import answer_leaks
-facts = load_json(FACTS)
-for qid, token, doc in answer_leaks(facts, load_bodies(facts)):
-    print(f'{qid}：答案「{token}」也出現在非 gold 文件 {doc}')
-"
-```
-Expected：沒有輸出最理想。有輸出的話，審題時一併請使用者決定：改答案字串、改那份文件，或接受（例如只是巧合出現同一個數字）。
-
-- [ ] **Step 3：停下來，請使用者審題**
-
-把 10 題和答案外洩清單貼給使用者，請他確認題目是否合理、答案是否明確。依照意見修改 `world/facts.json`；有改到答案的話，也要同步修改對應的 `world/corpus/` 文件。
-
-使用者同意後才進入下一步。
-
-- [ ] **Step 4：Commit**
-
-```bash
-git add world
-git commit -m "data: 試跑用的虛構世界（20 份文件、10 題）"
+git add world/questions.json
+git commit -m "data: 試跑題目（Codex 出題，10 題）"
 ```
 
 ---
 
-### Task 11：試跑——建置、評測、校正
+### Task 11：試跑——建置、閉卷、評測、校正
 
 - [ ] **Step 1：建置三組**
 
-Run: `uv run lab build`
-Expected：`完成：/Users/Shared/retrieval-lab-stage（20 份文件 × 3 組）`
+Run：`uv run lab build`
+Expected：`完成：/Users/Shared/retrieval-lab-stage（40 份文件 × 3 組）`
 
-- [ ] **Step 2：抽查 stage 的內容**
+- [ ] **Step 2：抽查 stage 內容**
 
 Run:
 ```bash
 find /Users/Shared/retrieval-lab-stage -path '*/docs/*' -name '*.md' | wc -l
 head -8 /Users/Shared/retrieval-lab-stage/C-indexed/INDEX.md
-ls /Users/Shared/retrieval-lab-stage/A-messy/docs | head -3
 ```
 Expected：
-- 第一行輸出 `60`。
-- INDEX.md 的表頭是 `| 路徑 | 標題 | 摘要 | 關鍵字 |`，關鍵字欄有同義詞。
-- A 組的檔名是 `doc_001.md` 這種格式。
+- 第一個指令輸出 `120`。
+- INDEX.md 的關鍵字欄位同時有英文名詞和繁中說法。
 
 - [ ] **Step 3：Commit 建置產物**
 
@@ -2021,63 +2049,58 @@ git add build/mapping.json world/index_rows.json
 git commit -m "data: 試跑的檔案對照表與盲建索引"
 ```
 
-- [ ] **Step 4：跑 1 輪**
+- [ ] **Step 4：閉卷對照**
 
-Run: `uv run lab run --rounds 1`
+Run：`uv run lab closed`
+Expected：`閉卷對照：10 題`，接著是 10 行 `✓`。
+
+- [ ] **Step 5：跑 1 輪並產生報表**
+
+Run：`uv run lab run --rounds 1 && uv run lab report`
 Expected：
-- 先印出 `開跑前檢查通過`，接著是 30 行 `[i/30] … ✓`。
-- 若出現 `✗`，重跑同一個指令就會只補跑失敗的題目。
-- 若開跑前檢查失敗，依訊息修正（多半是 stage 位置或上層有指示檔），**不要**跳過檢查。
-
-- [ ] **Step 5：產生報表**
-
-Run: `uv run lab report`
-Expected：印出三張表（總表、各題型答對率、成對比較），並寫出 `results/report.md`、`results/results.csv`、`results/dashboard.json`。
+- 先出現 `開跑前檢查通過`，接著是 30 行 `✓`。
+- 報表包含：閉卷對照那一行、兩張總表、題型表、成對比較。
+- 如果有 `✗`，重跑同一個指令會只補跑失敗的部分。
 
 - [ ] **Step 6：人工抽查評分**
 
 Run:
 ```bash
-jq -r '.questions[] | .question as $q | .gold_answer as $g | .results | to_entries[] | .key as $c | .value[] | "\($c)｜\($q)｜標準：\($g)｜回答：\(.answer)｜判定：\(.correct)"' results/dashboard.json | head -30
+jq -r '.questions[] | .question as $q | .gold_answer as $g | .memorized as $m | .results | to_entries[] | .key as $c | .value[] | "\($c)｜\($q)｜標準：\($g)｜回答：\(.answer)｜判定：\(.correct)｜憑記憶：\($m)"' results/dashboard.json | head -30
 ```
-至少逐筆看 10 筆，確認「判定」跟人的判斷一致。
+逐筆看至少 10 筆，確認判定跟人的判斷一致。
 
-如果有判錯的情況（例如答案用了不同寫法），先在 `tests/test_score.py` 加一個會失敗的測試重現它，再修改 `score.py` 或 `common.norm`，讓測試通過，然後重新執行 `uv run lab report`。
+如果發現判錯，先在 `tests/test_score.py` 加一個會失敗的測試把它重現，再修改 `score.py` 或 `common.norm`，最後重新執行 `uv run lab report`。
 
-接著列出 C 組「答對、但沒碰過 gold 文件」的紀錄，看看 Claude 是不是直接從 INDEX.md 的摘要拿到答案。這種情況會讓 C 組的檢索命中率看起來偏低：
+接著列出 C 組「答對、但沒碰 gold 文件」的紀錄：
 
 ```bash
-jq -r '.questions[] | .id as $id | .results["C-indexed"][] | select(.correct and .retrieved == false) | "\($id) 第 \(.round) 輪：答對但沒碰過 gold 文件（讀了索引：\(.index_used)）"' results/dashboard.json
+jq -r '.questions[] | .id as $id | .results["C-indexed"][] | select(.correct and .retrieved == false) | "\($id) 第 \(.round) 輪：答對但沒碰 gold 文件（讀了索引：\(.index_used)）"' results/dashboard.json
 ```
 
-- [ ] **Step 7：校正用量估算**
+- [ ] **Step 7：校正用量**
 
 Run:
 ```bash
 uv run python -c "
 import csv
-rows = list(csv.DictReader(open('results/results.csv', encoding='utf-8-sig')))
+rows = [r for r in csv.DictReader(open('results/results.csv', encoding='utf-8-sig')) if r['cond'] != 'Z-closed']
 n = len(rows)
-print('呼叫數', n)
-print('平均花費 USD', sum(float(r['cost_usd'] or 0) for r in rows) / n)
-print('平均秒數', sum(float(r['duration_s']) for r in rows) / n)
+print('評測呼叫', n, '平均花費 USD', round(sum(float(r['cost_usd'] or 0) for r in rows) / n, 4),
+      '平均秒數', round(sum(float(r['duration_s']) for r in rows) / n, 1))
 "
 ```
-用實測數字更新設計文件：
-- **第 12 節：** 換成實測的每次花費、時間，以及正式版一輪（120 次）的估算。
-- **第 14 節：** 把已確認的項目標成「已確認」。內容包括：`--effort medium` 可用、Grep 內文格式、`/Users/Shared` 可寫入，以及開跑前檢查改用「每組一次專用的檢查呼叫」實作。
+用實測數字更新設計第 12 節：寫入每次呼叫的平均花費和秒數，以及正式版的預估值。
 
 - [ ] **Step 8：停下來，向使用者回報試跑結果**
 
-試跑只用來確認**流程和評分正確**，不用來判斷難度。20 份文件時 Grep 幾乎什麼都找得到，三組很可能都接近滿分，但這不代表 200 份時也一樣。難度留到 Task 12，用正式版第 1 輪判斷。
-
 回報內容：
-- 總表與題型表，並說明在試跑規模下接近滿分是預期中的事。
-- 抽查結果，以及 Step 6 找到的評分問題與修正。
-- C 組「答對但沒碰過 gold 文件」的筆數（Step 6 第二個指令）。
-- 實測用量，以及正式版預估的時間和花費。
+- 總表兩張、題型表。
+- 閉卷的結果。
+- 抽查結果，以及 C 組「答對但沒碰 gold」的筆數。
+- 實際用量，以及正式版預估要花的時間和費用。
 
-使用者同意後才進入正式版。
+試跑只用來驗證流程和評分，不用來判斷難度。使用者同意後才進入正式版。
 
 - [ ] **Step 9：Commit**
 
@@ -2090,52 +2113,58 @@ git commit -m "data: 試跑結果與用量校正"
 
 ### Task 12：正式版
 
-- [ ] **Step 1：生成正式規模的世界**
+- [ ] **Step 1：下載全部文件**
 
-這一步約 70 次 Sonnet 呼叫。
+Run：`uv run lab collect --force`
+Expected：`完成：221 頁（agent-sdk 40、deepagents 58、langchain 79、langgraph 44）`
+頁數可能因為官方更新而略有不同；如果有不同，照實記錄。
 
-Run: `uv run lab generate --force`
-Expected：`完成：200 份文件、40 題，寫入 …/world`
+- [ ] **Step 2：Codex 出 40 題**
 
-舊的試跑結果會因為 world_id 不同，自動不納入統計。試跑資料仍保留在 git 歷史裡。
+同 Task 10 Step 1，指令改成：
 
-- [ ] **Step 2：列出 40 題，停下來請使用者審題**
+```bash
+codex exec --full-auto "請依照 docs/codex-questions.md 出題。這次是正式版：40 題，每種題型 8 題，四個框架都要有，試跑的題目可以沿用。"
+```
 
-指令同 Task 10 Step 2（題目清單和答案外洩清單兩個都要跑）。使用者同意後才繼續。
+接著執行 `uv run lab check`，修到沒有問題為止。
 
-- [ ] **Step 3：建置並 commit**
+- [ ] **Step 3：停下來，請使用者審題**
 
-Run: `uv run lab build`
-Expected：`完成：/Users/Shared/retrieval-lab-stage（200 份文件 × 3 組）`
+用 Task 10 Step 3 的指令列出題目，連同所有提醒一起交給使用者。使用者同意後才繼續。
+
+- [ ] **Step 4：建置並 commit**
+
+Run：`uv run lab build`
+Expected：`完成：/Users/Shared/retrieval-lab-stage（221 份文件 × 3 組）`
 
 ```bash
 git add world build/mapping.json
-git commit -m "data: 正式版虛構世界（200 份文件、40 題）與盲建索引"
+git commit -m "data: 正式版文件（221 頁）、題目（40 題）與盲建索引"
 ```
 
-- [ ] **Step 4：先跑第 1 輪**
+- [ ] **Step 5：閉卷對照，並跑第 1 輪**
 
-120 次呼叫。
+共 40 + 120 次呼叫。
 
-Run: `uv run lab run --rounds 1 && uv run lab report`
-Expected：先印出 `開跑前檢查通過`，接著 120 行，最後印出報表。中斷的話，重跑同一個指令即可續跑。
+Run：`uv run lab closed && uv run lab run --rounds 1 && uv run lab report`
 
-- [ ] **Step 5：停下來，用第 1 輪判斷難度**
+- [ ] **Step 6：停下來，用第 1 輪判斷難度**
 
-把總表、題型表，以及 C 組「答對但沒碰過 gold 文件」的筆數（指令同 Task 11 Step 6）回報給使用者。
+回報給使用者：
+- 兩張總表、題型表、閉卷結果。
+- C 組「答對但沒碰 gold」的筆數（用 Task 11 Step 6 的指令）。
 
-如果三組在多數題型都是 100%（天花板效應）或都是 0%，向使用者提出**對三組一視同仁**的調整，例如題目改得更口語、增加干擾文件。不可以針對某一組調整。
-
-調整就等於換一個新世界，要回到 Step 1 重新生成。舊的第 1 輪會因為 world_id 不同，自動不納入統計。
+如果多數題型三組都是 100% 或都是 0%，就提出**三組一視同仁**的調整，例如請 Codex 改題，然後回到 Step 2。舊結果會因為 world_id 不同，自動不納入統計。
 
 使用者同意維持現狀後才繼續。
 
-- [ ] **Step 6：補跑第 2、3 輪，產生報表並 commit**
+- [ ] **Step 7：補跑第 2、3 輪，產生報表並 commit**
 
-240 次呼叫。
+共 240 次呼叫。
 
-Run: `uv run lab run --rounds 3 && uv run lab report`
-Expected：第 1 輪顯示「已經完成，跳過」，接著跑第 2、3 輪，最後印出報表。
+Run：`uv run lab run --rounds 3 && uv run lab report`
+Expected：第 1 輪顯示「已經完成，跳過」，接著跑第 2、3 輪。
 
 ```bash
 git add results
@@ -2146,31 +2175,32 @@ git commit -m "data: 正式版 3 輪評測結果"
 
 ### Task 13：互動網頁
 
-**這一步在 Claude Code session 裡用 Artifact 工具完成，不是 Python 程式。**
+這一步是在 Claude Code session 裡用 Artifact 工具完成，不是 Python 程式。
 
-- [ ] **Step 1：發布前做隱私檢查**
+- [ ] **Step 1：隱私檢查**
 
-Run: `grep -c '/Users/' results/dashboard.json`
-Expected：`0`。不是 0 的話，先修正 `report._clean` 再重產報表。
+Run：`grep -cE '/Users/|/private/' results/dashboard.json`
+Expected：`0`
 
 - [ ] **Step 2：建立網頁**
 
-1. 呼叫 Artifact `quickstart`，intent 設為 `other`（呈現資料的儀表板）。
-2. 如果結果指示使用 Dashboard 型別，就照該型別的說明建立；否則手寫一頁 HTML，並先載入 `artifact-design` 和 `dataviz` 技能。
+1. 呼叫 Artifact `quickstart`，intent 用 `other`（呈現資料的儀表板）。
+2. 結果如果指示使用 Dashboard 型別，就照它的說明建立；否則手寫 HTML，並先載入 `artifact-design` 和 `dataviz` 技能。
 3. 資料一律來自 `results/dashboard.json`。
 
-頁面內容依設計第 9 節：
+頁面內容（依設計第 9 節）：
 
 | 區塊 | 內容 |
 |---|---|
-| 總覽 | 三組的答對率、檢索命中率、幻覺率長條圖（`summary.<cond>.<metric>.mean`，誤差範圍用 min–max）；效率數字（平均工具呼叫、讀檔數、秒數）；C 組讀了索引的比例 |
+| 總覽 | 三組的答對率、檢索命中率、幻覺率長條圖。誤差用 min–max 呈現，可切換「全部題目」（`summary`）和「需要查文件的題目」（`summary_need_docs`）。另外顯示效率數字和 C 組讀了索引的比例 |
+| 閉卷 | `memorized_count` / 可回答題數，說明這些題目為什麼要另外看 |
 | 題型 × 組別熱度表 | `by_type` |
-| 成對比較 | `paired`，標出可比較題數 n |
-| 逐題展開 | 依題型篩選，每題顯示題目、標準答案、三組各輪的回答、讀過的檔案、對錯 |
-| 頁尾 | 模型、effort、輪數、題數、Claude Code 版本、產生時間 |
+| 成對比較 | `paired`，標出 n |
+| 逐題展開 | 可以依題型篩選。每題顯示題目、標準答案、是否憑記憶可答、閉卷回答、三組各輪的回答、讀過的檔案、對錯 |
+| 頁尾 | 模型、effort、輪數、題數、Claude Code 版本、產生時間、文件來源與下載日期 |
 
 - [ ] **Step 3：發布並回報**
 
-發布後把連結給使用者，並提醒兩件事：
-- 頁面預設只有本人看得到，要給同學看需要從 Share 選單分享。
-- 之後跑了新的輪數，執行 `uv run lab report` 後請 Claude 重新發布，連結不會變。
+把連結給使用者，並提醒兩件事：
+- 頁面要從 Share 選單分享，同學才看得到。
+- 之後重新執行 `uv run lab report` 時，再請 Claude 重新發布即可，連結不變。

@@ -1,6 +1,6 @@
 """逐題比較各組和 B 組的花費、輸入 token、工具呼叫：同一輪同一題，哪一組用得比較多。
 README 的「幾乎每一題都比較貴」「A、B 互有高低」出自這裡。
-用法：uv run python scripts/paired_compare.py"""
+用法：uv run python scripts/paired_compare.py（公開 repo 少了 7 頁 wiki，要加 LAB_WORLD_ID=1b2014a0e3f6，見 README）"""
 from collections import defaultdict
 
 from lab.common import COND_LABELS, CONDS, read_rows, world_id

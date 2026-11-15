@@ -72,7 +72,7 @@ claude -p <prompt> --model haiku --effort medium --tools Read,Grep,Glob \
 - **規模：** LangChain 系列的頁面平均約 1.9 萬字元。Agent SDK 的 API 參考頁最長：TypeScript 版約 33 萬字元，Python 版約 17 萬字元。全部合計約 470 萬字元。
 - **處理方式：** 內文原樣保留，只去掉 Agent SDK 每頁開頭固定的「Documentation Index」引言。
 - **文件內的連結：** 原樣保留。B、C 組的檔名跟連結對得上，A 組對不上，這本身就是「整理方式」的一部分。
-- **著作權：** 公開 repo 只附 LangChain 系列的 181 頁（MIT，授權全文見 `THIRD_PARTY_NOTICES.md`）。Claude Agent SDK 的 32 頁沒有公開授權，不進 git，用 `uv run lab collect --missing` 補下載。網頁上也不放文件原文。（2026-11-15 修改：原本是整個 repo 都不公開推送。）
+- **著作權：** 公開 repo 只附 LangChain 系列的 181 頁（MIT，授權全文見 `THIRD_PARTY_NOTICES.md`）。Claude Agent SDK 的 32 頁沒有公開授權，不進 git，用 `uv run lab collect --missing` 補下載。wiki 裡有 7 頁 Agent SDK API 參考頁大量照抄原文的程式碼區塊，也不進 git（本機保留；重算既有結果時用 `LAB_WORLD_ID=1b2014a0e3f6` 指定 world_id）。網頁上也不放文件原文。（2026-11-15 修改：原本是整個 repo 都不公開推送。）
 
 ### 4.2 `world/docs.json`
 

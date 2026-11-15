@@ -5,3 +5,11 @@ __pycache__/
 runs/
 # Claude Agent SDK 文件沒有公開授權，不放進公開 repo；用 uv run lab collect --missing 補下載
 world/corpus/agent-sdk/
+# 這 7 頁 wiki 大量照抄 Agent SDK 文件的程式碼區塊，不放進公開 repo；本機保留，world_id 才不會變
+world/wiki/entities/agent-sdk-builtin-tools.md
+world/wiki/entities/agent-sdk-python-functions-and-client.md
+world/wiki/entities/agent-sdk-python-messages-hooks-and-errors.md
+world/wiki/entities/agent-sdk-python-options-and-types.md
+world/wiki/entities/agent-sdk-typescript-functions-and-query.md
+world/wiki/entities/agent-sdk-typescript-messages-and-hooks.md
+world/wiki/entities/agent-sdk-typescript-options-and-types.md

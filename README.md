@@ -18,7 +18,7 @@
 - **wiki 很少被當成路標。** wiki 頁面列出的 302 個出處都指得到真實檔案，但 D 組 96 次作答中，只有 1 次是照 wiki 的出處直接打開正解文件；79 次是先 Grep 整個資料夾才找到。
 - **雜亂和整理的花費差不多。** A 平均是 B 的 1.1 倍，但逐題比，A 比較貴 67 次、比較便宜 52 次，差距不穩定。比較穩定的差別是工具呼叫次數：A 比較多 60 次、比較少 24 次、一樣 35 次。
 
-逐題比較的數字可以用 `uv run python scripts/paired_compare.py` 重算。
+逐題比較的數字可以重算，方法見下方「重算與重跑」。
 
 ## 適用範圍
 
@@ -35,9 +35,21 @@
 
 完整的設計、過程紀錄與結果在 [docs/superpowers/specs/2026-11-14-retrieval-lab-design.md](docs/superpowers/specs/2026-11-14-retrieval-lab-design.md)。
 
-## 重跑
+## 重算與重跑
 
-需要 [uv](https://docs.astral.sh/uv/)，以及已登入的 Claude Code（`claude` 指令可以用）。
+需要 [uv](https://docs.astral.sh/uv/)。
+
+**只重算統計表：** repo 附了這次的作答紀錄 `results/results.jsonl`，不用重跑就能重算。
+
+```bash
+uv sync
+LAB_WORLD_ID=1b2014a0e3f6 uv run lab report                         # 產生 results/report.md、results.csv、dashboard.json
+LAB_WORLD_ID=1b2014a0e3f6 uv run python scripts/paired_compare.py   # 逐題比較
+```
+
+`LAB_WORLD_ID` 指定要統計哪一次實驗。world_id 是文件清單、題目和 wiki 的指紋；公開 repo 少了 7 頁 wiki（見「文件與授權」），算出來的 world_id 和這次實驗不同，所以要直接指定。
+
+**從頭重跑整個實驗：** 另外需要已登入的 Claude Code（`claude` 指令可以用）。每一輪的呼叫次數是「題數 × 4 組」，會消耗額度。
 
 ```bash
 uv sync
@@ -46,20 +58,21 @@ uv run lab check               # 檢查題目
 uv run lab build               # 建立 A/B/C/D 四組實驗資料夾
 uv run lab closed              # 閉卷對照
 uv run lab run --rounds 3      # 跑評測，中斷後可以續跑
-uv run lab report              # 產生 results/report.md、results.csv、dashboard.json
-uv run python scripts/export_dashboard.py   # 產生 results/dash/ 的資料集
+uv run lab report
+uv run python scripts/export_dashboard.py   # 產生 results/dash/ 的資料集，需要 lab run 留下的 runs/ 原始紀錄
 uv run pytest
 ```
 
+- 重跑的結果會記成新的 world_id，和這次的紀錄分開統計，也不會和這次完全相同：Agent SDK 有 3 頁（python、troubleshooting、typescript）在 2026-11-15 檢查時已經改版，D 組的 wiki 也少了 7 頁。
 - 實驗資料夾預設放在 `/Users/Shared/retrieval-lab-stage`，必須在家目錄外，可以用環境變數 `LAB_STAGE` 換位置。
-- 每一輪的呼叫次數是「題數 × 4 組」，會消耗額度。
-- 想改用最新版文件，執行 `uv run lab collect --force` 重新下載全部文件。舊結果會因為 world_id 不同，自動不納入統計。
+- 想改用最新版文件，執行 `uv run lab collect --force` 重新下載全部文件。
 
 ## 文件與授權
 
 - `world/corpus/` 只附 LangChain、LangGraph、Deep Agents 的 181 頁原文。它們來自 MIT 授權的 [langchain-ai/docs](https://github.com/langchain-ai/docs)，授權全文見 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 - Claude Agent SDK 的 32 頁來自 code.claude.com，沒有公開授權，所以不放進 repo，請用 `uv run lab collect --missing` 下載。commit 訊息裡的「213 頁」包含這 32 頁。
-- `world/wiki/` 和 `world/index_rows.json` 是模型依全部 213 頁寫的摘要。wiki 的 API 參考頁裡，有部分型別定義和程式碼範例和原文相同。
+- `world/wiki/` 少了 7 頁 Agent SDK API 參考頁（`entities/` 底下 `agent-sdk-` 開頭的頁面，`agent-sdk-custom-tools.md` 除外）。這 7 頁有 32–83% 的行是從 Agent SDK 文件逐字複製的程式碼區塊（型別定義、函式簽名、範例），所以不公開。實驗用的是完整的 88 頁，`wiki/index.md` 和其他頁面仍然連到這 7 頁。
+- 其餘 wiki 頁面和 `world/index_rows.json` 是模型依全部 213 頁寫的摘要；作答紀錄裡也有少量從文件引用的程式碼片段。
 
 ## 檔案
 
@@ -68,7 +81,7 @@ uv run pytest
 | `world/questions.json` | 40 題與標準答案 |
 | `world/trial_questions.json` | 18 題更難題型的試題 |
 | `world/docs.json` | 文件清單，含每份文件的 sha256 |
-| `world/wiki/` | D 組的 LLM wiki |
+| `world/wiki/` | D 組的 LLM wiki（公開版少了 7 頁，見「文件與授權」） |
 | `world/index_rows.json` | C 組 `INDEX.md` 的原始資料 |
 | `results/results.jsonl` | 每次作答的紀錄 |
 | `results/report.md`、`results/results.csv` | 統計表與逐筆結果 |

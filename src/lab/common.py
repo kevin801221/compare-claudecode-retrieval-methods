@@ -86,8 +86,11 @@ def load_bodies(world: dict) -> dict[str, str]:
 
 
 def world_id() -> str:
-    """文件清單、題目與 wiki 的指紋：任何一項改變就換一個 id，舊結果自動不納入統計。"""
-    questions = QUESTIONS_JSON.read_text(encoding="utf-8") if QUESTIONS_JSON.exists() else ""
+    """文件清單、題目與 wiki 的指紋：任何一項改變就換一個 id，舊結果自動不納入統計。
+    設了 LAB_WORLD_ID 就直接用它：公開 repo 少了 7 頁 wiki，要重算 repo 裡的既有結果時用。"""
+    if wid := os.environ.get("LAB_WORLD_ID"):
+        return wid
+    questions =QUESTIONS_JSON.read_text(encoding="utf-8") if QUESTIONS_JSON.exists() else ""
     wiki = "".join(f"{p.relative_to(WIKI)}\n{p.read_text(encoding='utf-8')}" for p in sorted(WIKI.rglob("*.md")))
     return sha256(DOCS_JSON.read_text(encoding="utf-8") + questions + wiki)[:12]
 

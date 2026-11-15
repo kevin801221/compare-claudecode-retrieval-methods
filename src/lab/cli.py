@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 
 from lab.common import FRAMEWORKS
 
@@ -48,6 +49,8 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--effort", default="medium")
 
     args = parser.parse_args(argv)
+    if args.cmd in ("run", "closed") and os.environ.get("LAB_WORLD_ID"):
+        raise SystemExit("設了 LAB_WORLD_ID 時不能跑 lab run／closed：新作答會被記成指定的 world_id，和既有結果混在一起")
     if args.cmd == "collect":
         from lab.collect import collect, collect_missing
         if args.missing:

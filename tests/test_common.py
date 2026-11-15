@@ -1,6 +1,23 @@
 import pytest
 
-from lab.common import fit_budget, is_under_home, leaking_ancestors, norm
+from lab.cli import main
+from lab.common import fit_budget, is_under_home, leaking_ancestors, norm, world_id
+
+
+def test_world_id_can_be_pinned(monkeypatch):
+    # 公開 repo 少了 7 頁 wiki，算出來的 world_id 會不同；用 LAB_WORLD_ID 指定，才能重算 repo 裡的既有結果
+    monkeypatch.setenv("LAB_WORLD_ID", "pinned-world")
+    assert world_id() == "pinned-world"
+
+
+@pytest.mark.parametrize("cmd", [["run", "--rounds", "1"], ["closed"]])
+def test_pinned_world_id_refuses_to_run(monkeypatch, cmd):
+    # 新作答會被記成指定的 world_id，和既有結果混在一起，所以不准跑
+    monkeypatch.setattr("lab.run.run", lambda **kw: None)
+    monkeypatch.setattr("lab.run.run_closed", lambda **kw: None)
+    monkeypatch.setenv("LAB_WORLD_ID", "1b2014a0e3f6")
+    with pytest.raises(SystemExit, match="LAB_WORLD_ID"):
+        main(cmd)
 
 
 def test_fit_budget_takes_largest_n_that_fits():

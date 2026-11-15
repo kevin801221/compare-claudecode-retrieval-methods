@@ -3,3 +3,5 @@ __pycache__/
 *.pyc
 .pytest_cache/
 runs/
+# Claude Agent SDK 文件沒有公開授權，不放進公開 repo；用 uv run lab collect --missing 補下載
+world/corpus/agent-sdk/

@@ -7,12 +7,13 @@ import tarfile
 import urllib.request
 from datetime import date
 
-from lab.common import CORPUS, DOCS_JSON, FRAMEWORKS, save_json, sha256
+from lab.common import CORPUS, DOCS_JSON, FRAMEWORKS, load_json, save_json, sha256
 
 LC_TARBALL = "https://codeload.github.com/langchain-ai/docs/tar.gz/main"
 LC_FRAMEWORKS = {"deepagents", "langchain", "langgraph"}
 SDK_INDEX = "https://code.claude.com/docs/llms.txt"
 SDK_LINK = re.compile(r"\((https://code\.claude\.com/docs/en/agent-sdk/[a-z0-9/-]+\.md)\)")
+SDK_PAGE = "https://code.claude.com/docs/en/agent-sdk/{slug}.md"
 # Agent SDK 每頁開頭都有一段固定的「Documentation Index」引言，把它去掉
 DOC_INDEX_BANNER = re.compile(r"\A(?:> .*\n)+\n?")
 
@@ -51,13 +52,36 @@ def langchain_pages(wanted: set[str]) -> list[tuple[str, str, str]]:
     return pages
 
 
+def sdk_page(slug: str) -> str:
+    return DOC_INDEX_BANNER.sub("", fetch(SDK_PAGE.format(slug=slug)).decode("utf-8"), count=1)
+
+
 def sdk_pages() -> list[tuple[str, str, str]]:
     urls = sorted(set(SDK_LINK.findall(fetch(SDK_INDEX).decode("utf-8"))))
-    pages = []
-    for url in urls:
-        body = DOC_INDEX_BANNER.sub("", fetch(url).decode("utf-8"), count=1)
-        pages.append(("agent-sdk", url.split("/agent-sdk/", 1)[1][: -len(".md")], body))
-    return pages
+    slugs = [url.split("/agent-sdk/", 1)[1][: -len(".md")] for url in urls]
+    return [("agent-sdk", slug, sdk_page(slug)) for slug in slugs]
+
+
+def collect_missing() -> list[str]:
+    """補下載 docs.json 列了、但 world/corpus/ 裡沒有的 Agent SDK 文件（公開 repo 沒附全文）。
+    不動 docs.json 和其他文件。回傳內容和當初 sha 不同的文件 id。"""
+    world = load_json(DOCS_JSON)
+    missing = [d for d in world["docs"] if not (CORPUS / f"{d['id']}.md").exists()]
+    if other := [d["id"] for d in missing if d["category"] != "agent-sdk"]:
+        raise SystemExit(f"缺少 {len(other)} 份不是 Agent SDK 的文件（例如 {other[0]}），請改用 lab collect --force 重新下載全部")
+    changed = []
+    for d in missing:
+        body = clean_body(sdk_page(d["slug"]))
+        path = CORPUS / f"{d['id']}.md"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(body, encoding="utf-8")
+        if sha256(body) != d["sha"]:
+            changed.append(d["id"])
+    print(f"補下載 {len(missing)} 份 Agent SDK 文件。")
+    if changed:
+        print(f"其中 {len(changed)} 份和 {world['collected_at']} 下載的版本不同（官方之後改過），"
+              f"重跑的結果可能和 results/ 不完全一樣：" + "、".join(changed))
+    return changed
 
 
 def collect(only: list[str] | None = None, force: bool = False) -> None:

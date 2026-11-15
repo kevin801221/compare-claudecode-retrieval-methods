@@ -20,6 +20,8 @@ def main(argv: list[str] | None = None) -> None:
     c = sub.add_parser("collect", help="下載官方文件到 world/")
     c.add_argument("--only", nargs="+", choices=FRAMEWORKS, help="只下載部分框架（試跑用 agent-sdk）")
     c.add_argument("--force", action="store_true", help="覆寫既有的 world/docs.json")
+    c.add_argument("--missing", action="store_true",
+                   help="只補下載缺少的 Agent SDK 文件（公開 repo 沒附全文），不動 docs.json 和其他文件")
 
     ck = sub.add_parser("check", help="檢查 world/questions.json 的題目")
     ck.add_argument("--file", help="改檢查另一個題目檔，例如 world/trial_questions.json")
@@ -47,8 +49,11 @@ def main(argv: list[str] | None = None) -> None:
 
     args = parser.parse_args(argv)
     if args.cmd == "collect":
-        from lab.collect import collect
-        collect(only=args.only, force=args.force)
+        from lab.collect import collect, collect_missing
+        if args.missing:
+            collect_missing()
+        else:
+            collect(only=args.only, force=args.force)
     elif args.cmd == "check":
         from pathlib import Path
 
